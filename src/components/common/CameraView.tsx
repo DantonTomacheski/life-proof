@@ -76,7 +76,7 @@ const CameraView: React.FC<CameraViewProps> = ({
           const stream = webcamRef.current?.stream;
           if (stream) {
             const track = stream.getVideoTracks()[0];
-            // @ts-expect-error - torch não é tipado oficialmente
+            // @ts-expect-error - torch property is not officially typed
             await track.applyConstraints({ advanced: [{ torch: true }] });
           }
         } catch (error) {
@@ -92,7 +92,7 @@ const CameraView: React.FC<CameraViewProps> = ({
           const stream = webcamRef.current?.stream;
           if (stream) {
             const track = stream.getVideoTracks()[0];
-            // @ts-expect-error - torch não é tipado oficialmente
+            // @ts-expect-error - torch property is not officially typed
             await track.applyConstraints({ advanced: [{ torch: false }] });
           }
         } catch (error) {
