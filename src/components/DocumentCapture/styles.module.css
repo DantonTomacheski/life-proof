@@ -1,0 +1,408 @@
+.documentCapture {
+  font-family: "Roboto", "Segoe UI", sans-serif;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 1rem;
+  color: #333;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  width: 100%;
+}
+
+.header h2 {
+  font-size: 1.8rem;
+  margin-bottom: 0.5rem;
+  color: #2c3e50;
+}
+
+.header p {
+  color: #7f8c8d;
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* Estilos para o indicador de progresso */
+.progressSteps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2rem;
+  width: 100%;
+  max-width: 400px;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 1;
+}
+
+.stepIndicator {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: #e0e0e0;
+  color: #777;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  border: 2px solid #e0e0e0;
+}
+
+.step.active .stepIndicator {
+  background-color: #3498db;
+  color: white;
+  border-color: #3498db;
+  transform: scale(1.1);
+  box-shadow: 0 0 10px rgba(52, 152, 219, 0.5);
+}
+
+.step.completed .stepIndicator {
+  background-color: #2ecc71;
+  border-color: #2ecc71;
+  color: white;
+}
+
+.stepLabel {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #777;
+  transition: all 0.3s ease;
+}
+
+.step.active .stepLabel {
+  color: #3498db;
+  font-weight: bold;
+}
+
+.step.completed .stepLabel {
+  color: #2ecc71;
+  font-weight: bold;
+}
+
+.stepConnector {
+  height: 3px;
+  background-color: #e0e0e0;
+  flex: 1;
+  margin: 0 10px;
+  max-width: 100px;
+  transition: background-color 0.3s ease;
+  position: relative;
+}
+
+.step.completed + .stepConnector {
+  background-color: #2ecc71;
+}
+
+.checkmark {
+  display: inline-block;
+  width: 8px;
+  height: 16px;
+  border: solid white;
+  border-width: 0 3px 3px 0;
+  transform: rotate(45deg);
+  margin-top: -4px;
+}
+
+/* Estilos para a visualização da câmera */
+.captureView {
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.cameraContainer {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  margin-bottom: 1.5rem;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+}
+
+/* Guia para o documento */
+.documentGuide {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 85%;
+  height: 65%;
+  border: 2px dashed rgba(255, 255, 255, 0.8);
+  border-radius: 8px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Corners do guia de documento */
+.cornerTL,
+.cornerTR,
+.cornerBL,
+.cornerBR {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-style: solid;
+  border-color: #3498db;
+  border-width: 0;
+}
+
+.cornerTL {
+  top: -2px;
+  left: -2px;
+  border-top-width: 3px;
+  border-left-width: 3px;
+}
+
+.cornerTR {
+  top: -2px;
+  right: -2px;
+  border-top-width: 3px;
+  border-right-width: 3px;
+}
+
+.cornerBL {
+  bottom: -2px;
+  left: -2px;
+  border-bottom-width: 3px;
+  border-left-width: 3px;
+}
+
+.cornerBR {
+  bottom: -2px;
+  right: -2px;
+  border-bottom-width: 3px;
+  border-right-width: 3px;
+}
+
+/* Dica de orientação */
+.orientationTip {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 10px 15px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 3;
+  animation: pulse 2s infinite;
+}
+
+.rotateIcon {
+  width: 24px;
+  height: 24px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M16.48 2.52c3.27 1.55 5.61 4.72 5.97 8.48h1.5c-.51-5-4.01-9.19-8.75-10.48v2z'/%3E%3Cpath d='M10.23 1.75c-.59-.59-1.54-.59-2.12 0L1.75 8.11c-.59.59-.59 1.54 0 2.12l12.37 12.37c.59.59 1.54.59 2.12 0l6.36-6.36c.59-.59.59-1.54 0-2.12L10.23 1.75zm4.04 19.54L2.85 9.87l6.36-6.36L21.14 15.3l-6.87 5.99z'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Instruções de captura */
+.captureInstructions {
+  width: 100%;
+  max-width: 640px;
+  margin-top: 1rem;
+  padding: 1.2rem;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.captureInstructions h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: #2c3e50;
+  font-size: 1.2rem;
+}
+
+.captureInstructions ul {
+  padding-left: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.captureInstructions li {
+  margin-bottom: 0.5rem;
+  color: #555;
+}
+
+.helpTip {
+  margin-top: 1rem;
+  padding: 0.8rem;
+  background-color: #f8f9fa;
+  border-left: 3px solid #3498db;
+  border-radius: 4px;
+}
+
+.helpTip p {
+  margin: 0;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+/* Visualização de confirmação */
+.confirmationView {
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.capturedImages {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  margin-bottom: 2rem;
+}
+
+@media (min-width: 768px) {
+  .capturedImages {
+    flex-direction: row;
+    justify-content: center;
+  }
+}
+
+.documentPreview {
+  flex: 1;
+  text-align: center;
+  max-width: 100%;
+}
+
+.documentPreview h3 {
+  margin-bottom: 0.8rem;
+  color: #2c3e50;
+}
+
+.imageWrapper {
+  position: relative;
+  display: inline-block;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+
+.documentImage {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+.retryButton {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: rgba(231, 76, 60, 0.8);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.retryButton:hover {
+  background-color: rgba(231, 76, 60, 1);
+  transform: scale(1.1);
+}
+
+.retryIcon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.confirmButton {
+  padding: 0.8rem 2rem;
+  background-color: #2ecc71;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 3px 6px rgba(46, 204, 113, 0.2);
+}
+
+.confirmButton:hover {
+  background-color: #27ae60;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 10px rgba(46, 204, 113, 0.3);
+}
+
+.confirmButton:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(46, 204, 113, 0.2);
+}
+
+/* Animações */
+@keyframes pulse {
+  0% {
+    opacity: 0.8;
+    transform: translateX(-50%) scale(0.95);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+  100% {
+    opacity: 0.8;
+    transform: translateX(-50%) scale(0.95);
+  }
+}
+
+/* Ajuste o componente CameraView para ser responsivo */
+@media (max-width: 640px) {
+  .documentCapture {
+    padding: 0.5rem;
+  }
+
+  .header h2 {
+    font-size: 1.5rem;
+  }
+
+  .header p {
+    font-size: 0.9rem;
+  }
+
+  .captureInstructions {
+    padding: 1rem;
+  }
+
+  .captureInstructions h3 {
+    font-size: 1.1rem;
+  }
+
+  .captureInstructions li {
+    font-size: 0.9rem;
+  }
+}

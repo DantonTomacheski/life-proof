@@ -1,0 +1,392 @@
+.facialRecognition {
+  font-family: "Segoe UI", "Roboto", "Helvetica Neue", sans-serif;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  color: #333;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.header h2 {
+  font-size: 1.8rem;
+  margin-bottom: 10px;
+  color: #2c3e50;
+}
+
+.header p {
+  font-size: 1rem;
+  color: #7f8c8d;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.cameraContainer {
+  position: relative;
+  width: 640px;
+  height: 480px;
+  margin: 0 auto 30px;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 3;
+  pointer-events: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+
+.statusMessage {
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  text-align: center;
+  padding: 20px;
+  border-radius: 8px;
+  max-width: 80%;
+}
+
+.statusMessage p {
+  margin: 10px 0 5px;
+  font-size: 1.1rem;
+}
+
+.statusMessage small {
+  display: block;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 10px;
+}
+
+.errorIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #e74c3c;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 auto 10px;
+  position: relative;
+}
+
+.errorIcon:before,
+.errorIcon:after {
+  content: "";
+  position: absolute;
+  width: 20px;
+  height: 2px;
+  background-color: white;
+  transform: rotate(45deg);
+}
+
+.errorIcon:after {
+  transform: rotate(-45deg);
+}
+
+.faceGuide {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 250px;
+  height: 300px;
+  border: 2px dashed rgba(255, 255, 255, 0.6);
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  z-index: 2;
+  pointer-events: none;
+  transition: all 0.3s ease;
+}
+
+.faceGuide.wellPositioned {
+  border-color: rgba(46, 204, 113, 0.8);
+  box-shadow: 0 0 0 5px rgba(46, 204, 113, 0.2);
+}
+
+.positioningGuide {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 30px;
+  font-size: 0.9rem;
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.positioningGuide.active {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.countdown {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100px;
+  height: 100px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 3rem;
+  font-weight: bold;
+  animation: pulse 1s infinite;
+  z-index: 5;
+}
+
+.capturePreview {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  animation: fadeIn 0.5s ease;
+}
+
+.capturePreview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.actionButtons {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 30px;
+}
+
+.captureButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 30px;
+  padding: 12px 30px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3);
+}
+
+.captureButton:hover {
+  background-color: #2980b9;
+  transform: translateY(-2px);
+}
+
+.captureButton.disabled {
+  background-color: #95a5a6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.captureButtonIcon {
+  width: 20px;
+  height: 20px;
+  background-color: white;
+  border-radius: 50%;
+  position: relative;
+  display: block;
+}
+
+.captureButtonIcon:before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  right: -5px;
+  bottom: -5px;
+  border: 2px solid white;
+  border-radius: 50%;
+}
+
+.captureActions {
+  display: flex;
+  gap: 15px;
+}
+
+.retryButton {
+  background-color: #fff;
+  color: #34495e;
+  border: 1px solid #34495e;
+  border-radius: 30px;
+  padding: 12px 25px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.retryButton:hover {
+  background-color: #f5f5f5;
+}
+
+.confirmButton {
+  background-color: #2ecc71;
+  color: white;
+  border: none;
+  border-radius: 30px;
+  padding: 12px 25px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 10px rgba(46, 204, 113, 0.3);
+}
+
+.confirmButton:hover {
+  background-color: #27ae60;
+  transform: translateY(-2px);
+}
+
+.instructions {
+  background-color: #f9f9f9;
+  padding: 20px;
+  border-radius: 10px;
+  max-width: 640px;
+  margin: 0 auto;
+  border-left: 4px solid #3498db;
+}
+
+.instructions h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #3498db;
+}
+
+.instructions ul {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  list-style-type: none;
+}
+
+.instructions li {
+  flex: 1 0 45%;
+  margin-bottom: 10px;
+  padding-left: 25px;
+  position: relative;
+  color: #555;
+}
+
+.instructions li:before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: #3498db;
+  font-weight: bold;
+}
+
+.helpTip {
+  margin-top: 15px;
+  padding: 10px 15px;
+  background-color: #fffbea;
+  border-left: 3px solid #f1c40f;
+  border-radius: 4px;
+}
+
+.helpTip p {
+  margin: 0 0 5px;
+  font-weight: bold;
+  color: #d35400;
+}
+
+.helpTip small {
+  color: #7f8c8d;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 700px) {
+  .cameraContainer {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4/3;
+  }
+
+  .canvas {
+    width: 100%;
+    height: 100%;
+  }
+
+  .statusMessage {
+    width: 90%;
+  }
+
+  .instructions ul {
+    flex-direction: column;
+  }
+
+  .instructions li {
+    flex: 1 0 100%;
+  }
+}
