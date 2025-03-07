@@ -1,7 +1,8 @@
 import React, { useRef, useEffect, useState } from "react";
 import CameraView from "../common/CameraView";
-import useFaceDetection from "../../hooks/useFaceDetection";
-import useLivenessDetection, {
+import { useFaceDetection } from "../../hooks/useFaceDetection";
+import {
+  useLivenessDetection,
   LivenessChallenge,
 } from "../../hooks/useLivenessDetection";
 import styles from "./styles.module.css";
@@ -14,29 +15,26 @@ interface LivenessDetectionProps {
 }
 
 /**
- * Componente de detecção de vivacidade
- * Realiza uma série de desafios faciais para verificar a vivacidade do usuário
+ * Componente para detecção de vivacidade facial através de desafios
+ * como piscar, sorrir e virar a cabeça.
  */
 const LivenessDetection: React.FC<LivenessDetectionProps> = ({
   onComplete,
 }) => {
-  // Referências para os elementos do DOM
+  // Referências para o canvas e vídeo
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  // Estado para coletar as predições faciais
+  // Estados para controle da interface
   const [facePrediction, setFacePrediction] = useState<any>(null);
+  const [showChallengeSuccess, setShowChallengeSuccess] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(true);
 
-  // Hook de detecção facial
-  const {
-    faceDetected,
-    isDetecting,
-    isProcessing: isProcessingFace,
-    startDetection,
-    stopDetection,
-  } = useFaceDetection();
+  // Dimensões da câmera
+  const cameraWidth = 640;
+  const cameraHeight = 480;
 
-  // Lista de desafios de vivacidade
+  // Lista de desafios
   const challenges: LivenessChallenge[] = [
     "blink",
     "smile",
@@ -44,127 +42,102 @@ const LivenessDetection: React.FC<LivenessDetectionProps> = ({
     "turnRight",
   ];
 
-  // Hook de detecção de vivacidade
+  // Hooks para detecção facial e de vivacidade
+  const { isDetecting, startDetection, stopDetection } = useFaceDetection();
   const {
     currentChallenge,
     completedChallenges,
     allChallengesCompleted,
     challengeProgress,
     startChallenge,
+    completeChallenge,
+    resetChallenges,
     checkFaceMovement,
-    isProcessingChallenge,
   } = useLivenessDetection(challenges);
 
-  // Dimensões da câmera
-  const cameraWidth = 640;
-  const cameraHeight = 480;
-
-  // Inicia o próximo desafio disponível
+  // Inicia o próximo desafio
   const startNextChallenge = () => {
-    // Encontra o próximo desafio que ainda não foi concluído
     const nextChallenge = challenges.find(
       (challenge) => !completedChallenges.includes(challenge)
     );
 
     if (nextChallenge) {
       startChallenge(nextChallenge);
+      setShowChallengeSuccess(false);
     }
   };
 
-  // Manipulador para quando o vídeo estiver carregado
+  // Manipulador para quando o vídeo é carregado
   const handleVideoLoad = (video: HTMLVideoElement) => {
-    if (!videoRef.current) {
-      videoRef.current = video;
+    videoRef.current = video;
+    setShowInstructions(false);
+    startDetection(canvasRef);
+    startNextChallenge(); // Inicia o primeiro desafio
+  };
 
-      // Inicia a detecção facial quando o vídeo estiver carregado
-      if (canvasRef.current) {
-        startDetection(video, canvasRef.current);
+  // Função para verificar o canvas (simulando a obtenção de predições)
+  const checkCanvas = () => {
+    // Exemplo de predição - em um aplicativo real, isso viria do TensorFlow
+    if (isDetecting && videoRef.current && currentChallenge) {
+      // Simula uma detecção facial com pontos-chave básicos
+      const simulatedPrediction = {
+        keypoints: [
+          { x: Math.random() * cameraWidth, y: Math.random() * cameraHeight },
+          { x: Math.random() * cameraWidth, y: Math.random() * cameraHeight },
+          // Mais pontos seriam incluídos em uma implementação real
+        ],
+      };
+
+      setFacePrediction(simulatedPrediction);
+
+      // Verifica o movimento facial para o desafio atual
+      const result = checkFaceMovement(simulatedPrediction);
+
+      // Se o progresso atingiu 100%, o desafio foi concluído
+      if (result && challengeProgress === 100) {
+        handleChallengeCompleted();
       }
-
-      // Inicia o primeiro desafio
-      startNextChallenge();
     }
   };
 
-  // Verifica periodicamente o canvas para detecção facial
-  useEffect(() => {
-    let animationId: number;
+  // Manipulador para quando um desafio é concluído
+  const handleChallengeCompleted = () => {
+    if (currentChallenge) {
+      completeChallenge(currentChallenge);
+      setShowChallengeSuccess(true);
 
-    // Simula a obtenção de predições faciais
-    const checkCanvas = () => {
-      if (canvasRef.current && faceDetected) {
-        // Em uma implementação real, obteríamos os keypoints da face
-        // Para fins de demonstração, geramos predições simuladas
-        const simulatedPrediction =
-          generateSimulatedPrediction(currentChallenge);
-        setFacePrediction(simulatedPrediction);
-
-        // Passa as predições para o hook de detecção de vivacidade
-        checkFaceMovement(simulatedPrediction);
-      }
-
-      animationId = requestAnimationFrame(checkCanvas);
-    };
-
-    animationId = requestAnimationFrame(checkCanvas);
-
-    return () => {
-      cancelAnimationFrame(animationId);
-    };
-  }, [faceDetected, checkFaceMovement, currentChallenge]);
-
-  // Inicia o próximo desafio quando um é concluído
-  useEffect(() => {
-    if (
-      currentChallenge === null &&
-      completedChallenges.length > 0 &&
-      completedChallenges.length < challenges.length
-    ) {
-      // Pequeno atraso para melhor UX
-      const timer = setTimeout(() => {
+      // Atraso para mostrar a mensagem de sucesso antes de passar para o próximo desafio
+      setTimeout(() => {
         startNextChallenge();
-      }, 1500);
-
-      return () => clearTimeout(timer);
+      }, 2000);
     }
+  };
 
-    // Quando todos os desafios forem concluídos
+  // Executa a verificação do canvas periodicamente
+  useEffect(() => {
+    const interval = setInterval(checkCanvas, 100);
+    return () => clearInterval(interval);
+  }, [isDetecting, currentChallenge, challengeProgress]);
+
+  // Monitora a conclusão de todos os desafios
+  useEffect(() => {
     if (allChallengesCompleted) {
       stopDetection();
-      // Pequeno atraso antes de chamar onComplete para melhor UX
-      const timer = setTimeout(() => {
+      setTimeout(() => {
         onComplete();
       }, 2000);
-
-      return () => clearTimeout(timer);
     }
-  }, [
-    completedChallenges,
-    currentChallenge,
-    allChallengesCompleted,
-    challenges.length,
-    onComplete,
-    stopDetection,
-  ]);
+  }, [allChallengesCompleted, stopDetection, onComplete]);
 
-  // Função auxiliar para gerar predições faciais simuladas para testes
-  // Em um ambiente real, isso viria de uma biblioteca de detecção facial
-  const generateSimulatedPrediction = (challenge: LivenessChallenge | null) => {
-    // Gera 468 pontos faciais simulados (MediaPipe Face Mesh tem 468 pontos)
-    const keypoints = Array.from({ length: 468 }, (_, i) => ({
-      x: Math.random() * cameraWidth,
-      y: Math.random() * cameraHeight,
-      z: Math.random() * 0.1,
-    }));
+  // Limpa a detecção quando o componente é desmontado
+  useEffect(() => {
+    return () => {
+      stopDetection();
+    };
+  }, [stopDetection]);
 
-    // Ajusta alguns pontos com base no desafio atual (para testes)
-    return keypoints;
-  };
-
-  // Traduz o nome do desafio para texto amigável em português
-  const getChallengeText = (challenge: LivenessChallenge | null): string => {
-    if (!challenge) return "";
-
+  // Obtém o texto do desafio em português
+  const getChallengeText = (challenge: LivenessChallenge): string => {
     switch (challenge) {
       case "blink":
         return "Pisque os olhos";
@@ -174,146 +147,103 @@ const LivenessDetection: React.FC<LivenessDetectionProps> = ({
         return "Vire o rosto para a esquerda";
       case "turnRight":
         return "Vire o rosto para a direita";
-      case "nod":
-        return "Acene com a cabeça (sim)";
       default:
-        return "";
-    }
-  };
-
-  // Ícones para os desafios
-  const getChallengeIcon = (
-    challenge: LivenessChallenge | null
-  ): JSX.Element => {
-    if (!challenge) return <></>;
-
-    switch (challenge) {
-      case "blink":
-        return (
-          <svg
-            width="30"
-            height="30"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"
-              fill="currentColor"
-            />
-          </svg>
-        );
-      case "smile":
-        return (
-          <svg
-            width="30"
-            height="30"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-5-6c.78 2.34 2.72 4 5 4s4.22-1.66 5-4H7zm9-2c.55 0 1-.45 1-1s-.45-1-1-1-1 .45-1 1 .45 1 1 1zm-8 0c.55 0 1-.45 1-1s-.45-1-1-1-1 .45-1 1 .45 1 1 1z"
-              fill="currentColor"
-            />
-          </svg>
-        );
-      case "turnLeft":
-        return (
-          <svg
-            width="30"
-            height="30"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path d="M14 7l-5 5 5 5V7z" fill="currentColor" />
-          </svg>
-        );
-      case "turnRight":
-        return (
-          <svg
-            width="30"
-            height="30"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path d="M10 17l5-5-5-5v10z" fill="currentColor" />
-          </svg>
-        );
-      case "nod":
-        return (
-          <svg
-            width="30"
-            height="30"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path d="M7 10l5 5 5-5H7z" fill="currentColor" />
-          </svg>
-        );
-      default:
-        return <></>;
+        return "Aguarde...";
     }
   };
 
   return (
     <div className={styles.livenessDetection}>
       <div className={styles.header}>
-        <h2>Prova de Vida</h2>
-        <p>Complete os desafios faciais para verificar sua identidade</p>
+        <h2>Verificação de Vivacidade</h2>
+        <p>Complete os desafios para confirmar que você é uma pessoa real</p>
+      </div>
+
+      {/* Barra de progresso dos desafios */}
+      <div className={styles.challengesProgress}>
+        {challenges.map((challenge, index) => (
+          <div
+            key={challenge}
+            className={`${styles.challengeStep} ${
+              completedChallenges.includes(challenge)
+                ? styles.completed
+                : currentChallenge === challenge
+                ? styles.active
+                : ""
+            }`}
+          >
+            <div className={styles.stepIndicator}>
+              {completedChallenges.includes(challenge) ? (
+                <span className={styles.checkmark}></span>
+              ) : (
+                <span>{index + 1}</span>
+              )}
+            </div>
+            <span className={styles.stepLabel}>
+              {challenge === "blink"
+                ? "Piscar"
+                : challenge === "smile"
+                ? "Sorrir"
+                : challenge === "turnLeft"
+                ? "Esquerda"
+                : "Direita"}
+            </span>
+          </div>
+        ))}
       </div>
 
       <div className={styles.cameraContainer}>
-        {/* Componente de visualização da câmera */}
+        {/* Câmera */}
         <CameraView
           width={cameraWidth}
           height={cameraHeight}
           onVideoLoad={handleVideoLoad}
           showCaptureButton={false}
-          showSwitchCameraButton={false}
-          mirrored={true}
         />
 
-        {/* Canvas para renderizar a malha facial */}
+        {/* Canvas para desenho da malha facial */}
         <canvas
           ref={canvasRef}
           width={cameraWidth}
           height={cameraHeight}
-          className={styles.canvas}
+          className={styles.faceCanvas}
         />
 
-        {/* Overlay para instruções e feedback */}
-        <div className={styles.overlay}>
-          {/* Status de inicialização */}
-          {isProcessingFace && !faceDetected && (
-            <div className={styles.statusMessage}>
-              <div className={styles.spinner}></div>
-              <p>Procurando seu rosto...</p>
+        {/* Sobreposição de instruções iniciais */}
+        {showInstructions && (
+          <div className={styles.instructionsOverlay}>
+            <div className={styles.instructionsContent}>
+              <div className={styles.instructionIcon}></div>
+              <h3>Vamos verificar se você é uma pessoa real</h3>
+              <p>
+                Posicione seu rosto no centro da câmera e siga as instruções.
+              </p>
+              <ul>
+                <li>Certifique-se de estar em um ambiente bem iluminado</li>
+                <li>Remova óculos escuros ou objetos que cubram seu rosto</li>
+                <li>Olhe diretamente para a câmera</li>
+              </ul>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Verifica se a face foi detectada */}
-          {!isProcessingFace && !faceDetected && isDetecting && (
-            <div className={styles.statusMessage}>
-              <div className={styles.errorIcon}></div>
-              <p>Não foi possível detectar seu rosto</p>
-              <small>
-                Certifique-se de que seu rosto está bem iluminado e visível na
-                câmera
-              </small>
-            </div>
-          )}
+        {/* Marcador de face para orientação */}
+        {isDetecting && currentChallenge && !allChallengesCompleted && (
+          <div className={styles.faceGuide}>
+            <div className={styles.faceOutline}></div>
+          </div>
+        )}
 
-          {/* Instruções do desafio atual */}
-          {faceDetected && currentChallenge && (
-            <div className={`${styles.challengePrompt} ${styles.active}`}>
-              <div className={styles.challengeIcon}>
-                {getChallengeIcon(currentChallenge)}
-              </div>
-              <h3>{getChallengeText(currentChallenge)}</h3>
+        {/* Indicador do desafio atual */}
+        {currentChallenge &&
+          !showChallengeSuccess &&
+          !allChallengesCompleted && (
+            <div className={styles.challengeIndicator}>
+              <div
+                className={styles.challengeIcon}
+                data-challenge={currentChallenge}
+              ></div>
+              <p>{getChallengeText(currentChallenge)}</p>
               <div className={styles.progressBar}>
                 <div
                   className={styles.progressFill}
@@ -323,69 +253,54 @@ const LivenessDetection: React.FC<LivenessDetectionProps> = ({
             </div>
           )}
 
-          {/* Mensagem de conclusão do desafio */}
-          {faceDetected &&
-            !currentChallenge &&
-            completedChallenges.length > 0 &&
-            completedChallenges.length < challenges.length && (
-              <div className={styles.challengeComplete}>
-                <div className={styles.checkmark}></div>
-                <p>Desafio concluído!</p>
-                <small>Prepare-se para o próximo desafio...</small>
-              </div>
-            )}
-
-          {/* Mensagem de todos os desafios concluídos */}
-          {allChallengesCompleted && (
-            <div className={styles.allComplete}>
-              <div className={styles.successIcon}></div>
-              <h3>Todos os desafios concluídos!</h3>
-              <p>Verificação de vivacidade concluída com sucesso</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Indicadores de progresso dos desafios */}
-      <div className={styles.challengeIndicators}>
-        {challenges.map((challenge, index) => (
-          <div
-            key={challenge}
-            className={`${styles.indicator} ${
-              completedChallenges.includes(challenge)
-                ? styles.completed
-                : currentChallenge === challenge
-                ? styles.current
-                : ""
-            }`}
-          >
-            <div className={styles.indicatorIcon}>
-              {completedChallenges.includes(challenge) ? (
-                <svg viewBox="0 0 24 24" width="16" height="16">
-                  <path
-                    d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"
-                    fill="currentColor"
-                  />
-                </svg>
-              ) : (
-                <span>{index + 1}</span>
-              )}
-            </div>
-            <span className={styles.indicatorLabel}>
-              {getChallengeText(challenge)}
-            </span>
+        {/* Mensagem de sucesso do desafio */}
+        {showChallengeSuccess && (
+          <div className={`${styles.challengeResult} ${styles.success}`}>
+            <div className={styles.successIcon}></div>
+            <p>Desafio concluído!</p>
           </div>
-        ))}
+        )}
+
+        {/* Mensagem de conclusão de todos os desafios */}
+        {allChallengesCompleted && (
+          <div className={styles.completionOverlay}>
+            <div className={styles.completionContent}>
+              <div className={styles.successIcon}></div>
+              <h3>Verificação Concluída</h3>
+              <p>Todos os desafios foram concluídos com sucesso!</p>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className={styles.instructions}>
-        <h4>Dicas para completar os desafios</h4>
-        <ul>
-          <li>Posicione seu rosto no centro da câmera</li>
-          <li>Certifique-se de estar em um ambiente bem iluminado</li>
-          <li>Evite obstruções como óculos escuros ou chapéus</li>
-          <li>Siga as instruções para cada desafio</li>
-        </ul>
+      {/* Dicas e instruções */}
+      <div className={styles.helpSection}>
+        <h3>Dicas para os desafios:</h3>
+        <div className={styles.helpItems}>
+          <div className={styles.helpItem}>
+            <div className={`${styles.helpIcon} ${styles.iconBlink}`}></div>
+            <div>
+              <h4>Piscar</h4>
+              <p>Pisque naturalmente algumas vezes olhando para a câmera</p>
+            </div>
+          </div>
+
+          <div className={styles.helpItem}>
+            <div className={`${styles.helpIcon} ${styles.iconSmile}`}></div>
+            <div>
+              <h4>Sorrir</h4>
+              <p>Faça um sorriso natural olhando para a câmera</p>
+            </div>
+          </div>
+
+          <div className={styles.helpItem}>
+            <div className={`${styles.helpIcon} ${styles.iconTurn}`}></div>
+            <div>
+              <h4>Virar</h4>
+              <p>Vire lentamente a cabeça para o lado indicado</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
