@@ -1,106 +1,119 @@
-# Sistema de Prova de Vida (Life Proof)
+# 🔒 Life Proof System
 
-Um sistema de verificação de identidade que utiliza reconhecimento facial, detecção de vivacidade e captura de documentos para garantir a autenticidade do usuário.
+<div align="center">
+  <img src="https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB" alt="React" />
+  <img src="https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/TensorFlow-%23FF6F00.svg?style=for-the-badge&logo=TensorFlow&logoColor=white" alt="TensorFlow" />
+  <img src="https://img.shields.io/badge/vite-%23646CFF.svg?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
+  <br/>
+  <strong>A modern, secure and user-friendly identity verification system</strong>
+</div>
 
-## Funcionalidades
+<br/>
 
-- **Reconhecimento Facial**: Captura a imagem do rosto do usuário para verificação de identidade.
-- **Detecção de Vivacidade**: Verifica se o usuário é uma pessoa real através de desafios como piscar, sorrir e virar a cabeça.
-- **Captura de Documentos**: Permite capturar imagens da frente e verso de documentos de identidade.
-- **Fluxo Completo**: Guia o usuário através de todas as etapas do processo de verificação.
+## 🌟 Overview
 
-## Tecnologias Utilizadas
+Life Proof is an advanced identity verification system that combines facial recognition, liveness detection, and document capture to ensure user authenticity. Built with modern web technologies, it offers a seamless and secure verification process entirely in the user's browser.
 
-- React.js
-- TypeScript
-- TensorFlow.js
-- MediaPipe Face Mesh
-- React Webcam
+## ✨ Features
 
-## Pré-requisitos
+- **🧑 Facial Recognition** - Captures and validates user's facial features for identity verification
+- **👁️ Liveness Detection** - Ensures the user is a real person through interactive challenges
+  - Blink detection
+  - Smile detection
+  - Head movement verification
+- **📄 Document Capture** - Allows users to capture images of identity documents (front and back)
+- **🔄 Complete Verification Flow** - Guides users through all steps of the verification process
+- **🔒 Privacy-Focused** - All processing happens locally in the browser
 
-- Node.js (versão 14 ou superior)
-- NPM ou Yarn
+## 🛠️ Technologies
 
-## Instalação
+- **React.js** - UI component library
+- **TypeScript** - Type-safe JavaScript
+- **TensorFlow.js** - Machine learning in the browser
+- **MediaPipe Face Mesh** - Real-time facial landmark detection
+- **React Webcam** - Camera integration
+- **Vite** - Fast build tool and development server
 
-1. Clone o repositório:
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js (v14 or higher)
+- npm or yarn
+- Modern browser with WebGL support
+- Webcam access
+
+### Installation
+
+1. Clone the repository:
 
    ```bash
-   git clone https://github.com/seu-usuario/life-proof.git
+   git clone https://github.com/DantonTomacheski/life-proof.git
    cd life-proof
    ```
 
-2. Instale as dependências:
+2. Install dependencies:
 
    ```bash
    npm install
-   # ou
+   # or
    yarn install
    ```
 
-3. Inicie o servidor de desenvolvimento:
+3. Start the development server:
 
    ```bash
    npm run dev
-   # ou
+   # or
    yarn dev
    ```
 
-4. Acesse a aplicação em seu navegador:
+4. Open your browser and navigate to:
    ```
    http://localhost:5173
    ```
 
-## Requisitos do Sistema
+## 📋 Usage Tips
 
-- Navegador moderno com suporte a WebGL (Chrome, Firefox, Safari, Edge)
-- Câmera web funcional
-- Permissões de acesso à câmera concedidas ao navegador
-- Conexão à internet para carregar os modelos de IA
+- **Lighting** - Ensure you're in a well-lit environment for optimal facial recognition
+- **Positioning** - Center your face in the camera frame and maintain an appropriate distance
+- **Documents** - When capturing documents, make sure they're fully visible and readable
+- **Privacy** - All verifications are performed locally; no data is sent to external servers
 
-## Considerações de Uso
-
-- **Iluminação**: Certifique-se de estar em um ambiente bem iluminado para melhor desempenho do reconhecimento facial.
-- **Posicionamento**: Posicione seu rosto no centro da câmera e mantenha uma distância adequada.
-- **Documentos**: Ao capturar documentos, certifique-se de que estão completamente visíveis e legíveis.
-- **Privacidade**: Todas as verificações são realizadas localmente no navegador, sem envio de dados para servidores externos.
-
-## Estrutura do Projeto
+## 📁 Project Structure
 
 ```
 src/
 ├── components/
 │   ├── common/
-│   │   └── CameraView.tsx
-│   ├── DocumentCapture/
-│   │   └── index.tsx
-│   ├── FacialRecognition/
-│   │   └── index.tsx
-│   ├── LivenessDetection/
-│   │   └── index.tsx
-│   └── ProofOfLifeSystem.tsx
+│   │   └── CameraView.tsx     # Reusable camera component
+│   ├── DocumentCapture/       # Document scanning component
+│   ├── FacialRecognition/     # Facial recognition component
+│   ├── LivenessDetection/     # Liveness detection component
+│   └── ProofOfLifeSystem.tsx  # Main system component
 ├── hooks/
-│   ├── useFaceDetection.ts
-│   └── useLivenessDetection.ts
+│   ├── useFaceDetection.ts    # Face detection hook
+│   └── useLivenessDetection.ts# Liveness detection hook
 ├── services/
-│   └── faceDetection.ts
+│   └── faceDetection.ts       # Face detection service
 ├── utils/
-│   ├── drawMesh.ts
-│   └── triangulation.ts
-├── App.css
-├── App.tsx
-└── main.tsx
+│   ├── drawMesh.ts            # Utility for drawing facial mesh
+│   └── triangulation.ts       # Facial triangulation data
+└── App.tsx                    # Main application component
 ```
 
-## Licença
+## 📝 License
 
-Este projeto está licenciado sob a licença MIT - veja o arquivo LICENSE para mais detalhes.
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
 
-## Contribuições
+## 🤝 Contributing
 
-Contribuições são bem-vindas! Sinta-se à vontade para abrir issues ou enviar pull requests com melhorias.
+Contributions are welcome! Feel free to open issues or submit pull requests with improvements.
 
 ---
 
-Desenvolvido com ❤️ para garantir a segurança e autenticidade em processos digitais.
+<div align="center">
+  <p>Developed with ❤️ to ensure security and authenticity in digital processes.</p>
+  <p>© 2024 Danton Tomacheski</p>
+</div>
