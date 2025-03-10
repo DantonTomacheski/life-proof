@@ -8,8 +8,10 @@ interface FacialRecognitionProps {
 }
 
 /**
- * Componente para reconhecimento facial
- * Captura uma imagem do rosto do usuário quando detectado corretamente
+ * Improved Facial Recognition Component
+ * - Automatically captures face when properly detected
+ * - Mobile-first responsive design
+ * - Improved user experience and feedback
  */
 const FacialRecognition: React.FC<FacialRecognitionProps> = ({
   onComplete,
@@ -21,13 +23,21 @@ const FacialRecognition: React.FC<FacialRecognitionProps> = ({
   // Estados locais
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [captureAttempts, setCaptureAttempts] = useState<number>(0);
-  const [isCaptureReady, setIsCaptureReady] = useState<boolean>(false);
-  const [isCapturing, setIsCapturing] = useState<boolean>(false);
   const [countdownValue, setCountdownValue] = useState<number>(0);
+  const [faceStableFor, setFaceStableFor] = useState<number>(0);
+  const [isCapturing, setIsCapturing] = useState<boolean>(false);
+  const [showHelpTip, setShowHelpTip] = useState<boolean>(false);
 
-  // Dimensões da câmera
-  const cameraWidth = 640;
-  const cameraHeight = 480;
+  // Timer para atraso na exibição de dicas de ajuda
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!capturedImage) {
+        setShowHelpTip(true);
+      }
+    }, 10000); // Mostrar dica após 10 segundos sem captura
+
+    return () => clearTimeout(timer);
+  }, [capturedImage]);
 
   // Hook de detecção facial
   const {
@@ -38,38 +48,62 @@ const FacialRecognition: React.FC<FacialRecognitionProps> = ({
     isProcessing,
   } = useFaceDetection();
 
+  // Dimensões responsivas da câmera
+  const getCameraDimensions = () => {
+    const width = window.innerWidth < 480 ? window.innerWidth - 40 : 480;
+    const height = (width * 3) / 4; // Proporção 4:3
+    return { width, height };
+  };
+
+  const [cameraDimensions, setCameraDimensions] = useState(
+    getCameraDimensions()
+  );
+
+  // Atualiza dimensões da câmera quando a janela é redimensionada
+  useEffect(() => {
+    const handleResize = () => {
+      setCameraDimensions(getCameraDimensions());
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   // Verifica se o rosto está bem posicionado para captura
   const isFaceWellPositioned = (): boolean => {
     if (!facePosition || !faceDetected) return false;
 
-    // Verifica se o rosto está centralizado e com tamanho adequado
+    // Calcular centro do rosto
     const faceCenterX = facePosition.x + facePosition.width / 2;
     const faceCenterY = facePosition.y + facePosition.height / 2;
 
+    // Calcular centro da câmera
+    const cameraWidth = cameraDimensions.width;
+    const cameraHeight = cameraDimensions.height;
     const cameraHorizontalCenter = cameraWidth / 2;
     const cameraVerticalCenter = cameraHeight / 2;
 
-    // Calcula o desvio do centro
+    // Desvio do centro
     const horizontalDeviation =
       Math.abs(faceCenterX - cameraHorizontalCenter) / cameraWidth;
     const verticalDeviation =
       Math.abs(faceCenterY - cameraVerticalCenter) / cameraHeight;
 
-    // Verifica se o tamanho do rosto é adequado (nem muito grande nem muito pequeno)
+    // Verificar tamanho do rosto
     const faceArea = facePosition.width * facePosition.height;
     const screenArea = cameraWidth * cameraHeight;
     const faceRatio = faceArea / screenArea;
 
     // Retorna true se todas as condições forem atendidas
     return (
-      horizontalDeviation < 0.15 && // Menos de 15% de desvio horizontal
-      verticalDeviation < 0.15 && // Menos de 15% de desvio vertical
-      faceRatio > 0.1 && // Rosto ocupa pelo menos 10% da tela
-      faceRatio < 0.6 // Rosto não ocupa mais de 60% da tela
+      horizontalDeviation < 0.12 && // Menos de 12% de desvio horizontal
+      verticalDeviation < 0.12 && // Menos de 12% de desvio vertical
+      faceRatio > 0.08 && // Rosto ocupa pelo menos 8% da tela
+      faceRatio < 0.65 // Rosto não ocupa mais de 65% da tela
     );
   };
 
-  // Inicia a contagem regressiva para captura automática
+  // Gerenciar a estabilidade do rosto para captura automática
   useEffect(() => {
     if (
       faceDetected &&
@@ -77,23 +111,18 @@ const FacialRecognition: React.FC<FacialRecognitionProps> = ({
       !capturedImage &&
       !isCapturing
     ) {
-      // Quando o rosto estiver bem posicionado, ativa o estado de pronto para captura
-      if (!isCaptureReady) {
-        setIsCaptureReady(true);
-      }
+      setFaceStableFor((prev) => prev + 1);
 
-      // Se já estiver pronto, inicia a contagem regressiva
-      if (isCaptureReady && countdownValue === 0) {
+      // Se o rosto estiver estável por tempo suficiente, inicia contagem regressiva
+      if (faceStableFor > 15 && countdownValue === 0) {
         setCountdownValue(3);
       }
     } else {
-      // Se o rosto não estiver bem posicionado, reinicia o estado
-      if (isCaptureReady && countdownValue === 0) {
-        setIsCaptureReady(false);
-      }
+      // Reseta contador se o rosto não estiver bem posicionado
+      setFaceStableFor(0);
 
-      // Se estiver no meio da contagem e o rosto sair da posição, cancela
-      if (countdownValue > 0) {
+      // Cancela contagem se estiver em andamento
+      if (countdownValue > 0 && !isCapturing) {
         setCountdownValue(0);
       }
     }
@@ -102,8 +131,8 @@ const FacialRecognition: React.FC<FacialRecognitionProps> = ({
     facePosition,
     capturedImage,
     isCapturing,
-    isCaptureReady,
     countdownValue,
+    faceStableFor,
   ]);
 
   // Gerencia a contagem regressiva
@@ -111,8 +140,8 @@ const FacialRecognition: React.FC<FacialRecognitionProps> = ({
     if (countdownValue > 0) {
       const timer = setTimeout(() => {
         if (countdownValue === 1) {
-          // Ao finalizar a contagem, captura a imagem
-          handleCaptureClick();
+          // Ao finalizar a contagem, captura a imagem automaticamente
+          handleCapture();
         } else {
           // Decrementa o contador
           setCountdownValue(countdownValue - 1);
@@ -135,8 +164,8 @@ const FacialRecognition: React.FC<FacialRecognitionProps> = ({
     }
   };
 
-  // Captura uma imagem quando o botão é clicado
-  const handleCaptureClick = () => {
+  // Captura uma imagem automaticamente
+  const handleCapture = () => {
     if (!faceDetected || isCapturing) return;
 
     setIsCapturing(true);
@@ -147,17 +176,26 @@ const FacialRecognition: React.FC<FacialRecognitionProps> = ({
 
         // Cria um canvas temporário para capturar a imagem sem a malha facial
         const tempCanvas = document.createElement("canvas");
-        tempCanvas.width = cameraWidth;
-        tempCanvas.height = cameraHeight;
+        tempCanvas.width = cameraDimensions.width;
+        tempCanvas.height = cameraDimensions.height;
         const tempCtx = tempCanvas.getContext("2d");
 
         if (tempCtx && videoRef.current) {
           // Desenha o vídeo no canvas temporário
-          tempCtx.drawImage(videoRef.current, 0, 0, cameraWidth, cameraHeight);
+          tempCtx.drawImage(
+            videoRef.current,
+            0,
+            0,
+            cameraDimensions.width,
+            cameraDimensions.height
+          );
 
           // Obtém a imagem do canvas
-          const imageData = tempCanvas.toDataURL("image/jpeg", 0.8);
+          const imageData = tempCanvas.toDataURL("image/jpeg", 0.9);
           setCapturedImage(imageData);
+
+          // Após capturar, avança automaticamente após 1.5 segundos
+          setTimeout(() => confirmCapture(imageData), 1500);
         }
       }
       setIsCapturing(false);
@@ -165,18 +203,16 @@ const FacialRecognition: React.FC<FacialRecognitionProps> = ({
     }, 200);
   };
 
-  // Confirma a captura atual
-  const confirmCapture = () => {
-    if (capturedImage) {
-      stopDetection();
-      onComplete(capturedImage);
-    }
+  // Confirma a captura atual e avança para o próximo passo
+  const confirmCapture = (image: string) => {
+    stopDetection();
+    onComplete(image);
   };
 
   // Tenta uma nova captura
   const retryCapture = () => {
     setCapturedImage(null);
-    setIsCaptureReady(false);
+    setFaceStableFor(0);
     setCountdownValue(0);
   };
 
@@ -191,14 +227,20 @@ const FacialRecognition: React.FC<FacialRecognitionProps> = ({
     <div className={styles.facialRecognition}>
       <div className={styles.header}>
         <h2>Reconhecimento Facial</h2>
-        <p>Posicione seu rosto corretamente para a captura</p>
+        <p>Posicione seu rosto no centro da tela</p>
       </div>
 
-      <div className={styles.cameraContainer}>
+      <div
+        className={styles.cameraContainer}
+        style={{
+          width: cameraDimensions.width,
+          height: cameraDimensions.height,
+        }}
+      >
         {/* Componente de câmera */}
         <CameraView
-          width={cameraWidth}
-          height={cameraHeight}
+          width={cameraDimensions.width}
+          height={cameraDimensions.height}
           onVideoLoad={handleVideoLoad}
           showCaptureButton={false}
           showSwitchCameraButton={true}
@@ -209,8 +251,8 @@ const FacialRecognition: React.FC<FacialRecognitionProps> = ({
         {/* Canvas para renderização da malha facial */}
         <canvas
           ref={canvasRef}
-          width={cameraWidth}
-          height={cameraHeight}
+          width={cameraDimensions.width}
+          height={cameraDimensions.height}
           className={styles.canvas}
         />
 
@@ -244,8 +286,7 @@ const FacialRecognition: React.FC<FacialRecognitionProps> = ({
               <div className={styles.errorIcon}></div>
               <p>Rosto não detectado</p>
               <small>
-                Certifique-se de que seu rosto está bem iluminado e visível na
-                câmera
+                Certifique-se de que seu rosto está bem iluminado e visível
               </small>
             </div>
           )}
@@ -253,9 +294,19 @@ const FacialRecognition: React.FC<FacialRecognitionProps> = ({
           {/* Instruções quando o rosto é detectado mas não está bem posicionado */}
           {faceDetected && !isFaceWellPositioned() && !capturedImage && (
             <div className={`${styles.positioningGuide} ${styles.active}`}>
-              <p>Centralize seu rosto no quadro</p>
+              <p>Centralize seu rosto no círculo</p>
             </div>
           )}
+
+          {/* Mensagem quando o rosto está posicionado corretamente */}
+          {faceDetected &&
+            isFaceWellPositioned() &&
+            !capturedImage &&
+            faceStableFor > 10 && (
+              <div className={`${styles.positioningGuide} ${styles.success}`}>
+                <p>Perfeito! Mantenha a posição</p>
+              </div>
+            )}
         </div>
 
         {/* Exibição da imagem capturada */}
@@ -264,34 +315,13 @@ const FacialRecognition: React.FC<FacialRecognitionProps> = ({
             <img
               src={capturedImage}
               alt="Imagem capturada"
-              width={cameraWidth}
-              height={cameraHeight}
+              width={cameraDimensions.width}
+              height={cameraDimensions.height}
             />
-          </div>
-        )}
-      </div>
-
-      {/* Botões de ação */}
-      <div className={styles.actionButtons}>
-        {!capturedImage ? (
-          <button
-            className={`${styles.captureButton} ${
-              !faceDetected || isCapturing ? styles.disabled : ""
-            }`}
-            onClick={handleCaptureClick}
-            disabled={!faceDetected || isCapturing}
-          >
-            <span className={styles.captureButtonIcon}></span>
-            Capturar Foto
-          </button>
-        ) : (
-          <div className={styles.captureActions}>
-            <button className={styles.retryButton} onClick={retryCapture}>
-              Tentar Novamente
-            </button>
-            <button className={styles.confirmButton} onClick={confirmCapture}>
-              Confirmar
-            </button>
+            <div className={styles.captureSuccess}>
+              <div className={styles.checkIcon}></div>
+              <p>Captura realizada com sucesso!</p>
+            </div>
           </div>
         )}
       </div>
@@ -306,11 +336,12 @@ const FacialRecognition: React.FC<FacialRecognitionProps> = ({
           <li>Não use óculos escuros ou chapéus</li>
         </ul>
 
-        {captureAttempts > 2 && !capturedImage && (
+        {showHelpTip && captureAttempts === 0 && !capturedImage && (
           <div className={styles.helpTip}>
-            <p>Está tendo dificuldades?</p>
+            <p>Não estamos conseguindo detectar seu rosto?</p>
             <small>
-              Tente ajustar a iluminação ou posicionar-se em um fundo neutro.
+              Tente em um ambiente mais iluminado ou posicione-se em um fundo
+              neutro.
             </small>
           </div>
         )}

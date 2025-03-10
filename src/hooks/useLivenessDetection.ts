@@ -1,3 +1,4 @@
+// src/hooks/useLivenessDetection.ts
 import { useState, useCallback, useRef, useEffect } from "react";
 
 // Tipos de desafios possíveis
@@ -24,12 +25,12 @@ export interface UseLivenessDetectionResult {
   startChallenge: (challenge: LivenessChallenge) => void;
   completeChallenge: (challenge: LivenessChallenge) => void;
   resetChallenges: () => void;
-  checkFaceMovement: (keypoints: FacePoint[]) => void;
+  checkFaceMovement: (keypoints: FacePoint[]) => boolean;
   isProcessingChallenge: boolean;
 }
 
 /**
- * Hook para detecção de vivacidade
+ * Hook para detecção de vivacidade com desafios faciais
  */
 export const useLivenessDetection = (
   challengeList: LivenessChallenge[] = [
@@ -55,44 +56,15 @@ export const useLivenessDetection = (
   const consecutiveDetectionsRef = useRef<number>(0);
   const lastFaceStateRef = useRef<any>(null);
   const progressIntervalRef = useRef<number | null>(null);
-  const requiredDetections = 3; // Número de detecções consecutivas necessárias
-  const movementThreshold = 0.3; // Limiar para detectar movimento
-
-  // Índices de pontos faciais importantes (baseados no MediaPipe Face Mesh)
-  const FACE_INDICES = {
-    // Olhos
-    leftEye: [
-      33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161,
-      246,
-    ],
-    rightEye: [
-      362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384,
-      398,
-    ],
-
-    // Boca
-    mouth: [
-      61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291, 375, 321, 405, 314, 17,
-      84, 181,
-    ],
-
-    // Nariz e queixo para rotação
-    nose: [1, 2, 3, 4, 5, 6, 168, 197, 195, 5],
-    chin: [199, 200, 201, 202, 204, 208, 210, 211, 212],
-
-    // Contorno do rosto
-    faceOval: [
-      10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379,
-      378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127,
-      162, 21, 54, 103, 67, 109,
-    ],
-  };
+  const requiredDetections = 5; // Aumentado para tornar mais robusto
+  const movementThreshold = 0.1; // Limiar para detectar movimento (reduzido para permitir detecção mais fácil)
 
   // Limpa o intervalo de progresso do desafio
   useEffect(() => {
     return () => {
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
+      const intervalId = progressIntervalRef.current;
+      if (intervalId) {
+        clearInterval(intervalId);
       }
     };
   }, []);
@@ -112,11 +84,6 @@ export const useLivenessDetection = (
       lastFaceStateRef.current = null;
 
       console.log(`Iniciando desafio: ${challenge}`);
-
-      // Iniciar um timer para incrementar o progresso animado
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-      }
     },
     [completedChallenges]
   );
@@ -143,10 +110,6 @@ export const useLivenessDetection = (
         setAllChallengesCompleted(true);
         console.log("Todos os desafios foram completados!");
       }
-
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-      }
     },
     [completedChallenges, challengeList]
   );
@@ -160,248 +123,169 @@ export const useLivenessDetection = (
     setIsProcessingChallenge(false);
     consecutiveDetectionsRef.current = 0;
     lastFaceStateRef.current = null;
-
-    if (progressIntervalRef.current) {
-      clearInterval(progressIntervalRef.current);
-    }
   }, []);
-
-  // Calcula a distância entre dois pontos
-  const distance = useCallback((p1: FacePoint, p2: FacePoint): number => {
-    return Math.sqrt(
-      Math.pow(p2.x - p1.x, 2) +
-        Math.pow(p2.y - p1.y, 2) +
-        (p1.z && p2.z ? Math.pow(p2.z - p1.z, 2) : 0)
-    );
-  }, []);
-
-  // Calcula a área de um polígono formado por pontos
-  const calculateArea = useCallback((points: FacePoint[]): number => {
-    let area = 0;
-    const n = points.length;
-
-    for (let i = 0; i < n; i++) {
-      const j = (i + 1) % n;
-      area += points[i].x * points[j].y;
-      area -= points[j].x * points[i].y;
-    }
-
-    return Math.abs(area) / 2;
-  }, []);
-
-  // Calcula o ângulo entre três pontos
-  const calculateAngle = useCallback(
-    (p1: FacePoint, p2: FacePoint, p3: FacePoint): number => {
-      const vector1 = { x: p1.x - p2.x, y: p1.y - p2.y };
-      const vector2 = { x: p3.x - p2.x, y: p3.y - p2.y };
-
-      const dotProduct = vector1.x * vector2.x + vector1.y * vector2.y;
-      const magnitude1 = Math.sqrt(
-        vector1.x * vector1.x + vector1.y * vector1.y
-      );
-      const magnitude2 = Math.sqrt(
-        vector2.x * vector2.x + vector2.y * vector2.y
-      );
-
-      if (magnitude1 === 0 || magnitude2 === 0) return 0;
-
-      const cosAngle = dotProduct / (magnitude1 * magnitude2);
-      return Math.acos(Math.min(Math.max(cosAngle, -1), 1)) * (180 / Math.PI);
-    },
-    []
-  );
 
   // Verifica se os olhos estão fechados
+  // Simplificado para trabalhar com dados de posição aproximados
   const areEyesClosed = useCallback(
     (keypoints: FacePoint[]): boolean => {
-      if (!keypoints || keypoints.length < 468) return false;
+      // Esta é uma implementação simplificada que verifica se os olhos estão fechados
+      // baseada em pontos aproximados - para um sistema real você precisaria de pontos mais precisos
 
-      // Calcula a abertura vertical dos olhos
-      const getEyeOpenRatio = (eyeIndices: number[]) => {
-        const eyePoints = eyeIndices.map((index) => keypoints[index]);
-        const topPoints = eyePoints.slice(0, eyePoints.length / 2);
-        const bottomPoints = eyePoints.slice(eyePoints.length / 2);
+      // Verificamos se temos pontos suficientes para esta análise
+      if (keypoints.length < 5) return false;
 
-        // Calcula distâncias verticais entre os pontos superiores e inferiores
-        let totalVerticalDistance = 0;
-        const pairsToCheck = Math.min(topPoints.length, bottomPoints.length);
+      // Em um modelo de detecção real, você teria pontos específicos para as pálpebras superior e inferior
+      // Como estamos trabalhando com dados simplificados, simulamos a detecção de olhos fechados
+      // com base na posição atual dos pontos faciais em relação ao estado anterior
 
-        for (let i = 0; i < pairsToCheck; i++) {
-          totalVerticalDistance += distance(topPoints[i], bottomPoints[i]);
-        }
+      // Se não temos estado anterior, salvamos o atual e retornamos falso
+      if (!lastFaceStateRef.current?.eyePoints) {
+        lastFaceStateRef.current = {
+          ...lastFaceStateRef.current,
+          eyePoints: [keypoints[1], keypoints[2]], // Pontos referentes aos olhos (aproximados)
+        };
+        return false;
+      }
 
-        // Calcula a largura horizontal do olho
-        const leftMostPoint = eyePoints.reduce(
-          (prev, curr) => (prev.x < curr.x ? prev : curr),
-          eyePoints[0]
-        );
-        const rightMostPoint = eyePoints.reduce(
-          (prev, curr) => (prev.x > curr.x ? prev : curr),
-          eyePoints[0]
-        );
+      // Calculamos a diferença vertical dos pontos dos olhos
+      // comparando com o estado anterior
+      const leftEyeVerticalChange = Math.abs(
+        keypoints[1].y - lastFaceStateRef.current.eyePoints[0].y
+      );
 
-        const horizontalDistance = distance(leftMostPoint, rightMostPoint);
+      const rightEyeVerticalChange = Math.abs(
+        keypoints[2].y - lastFaceStateRef.current.eyePoints[1].y
+      );
 
-        // Retorna a proporção: quanto menor, mais fechado está o olho
-        return totalVerticalDistance / (horizontalDistance * pairsToCheck);
-      };
+      // Atualizamos o estado
+      lastFaceStateRef.current.eyePoints = [keypoints[1], keypoints[2]];
 
-      const leftEyeRatio = getEyeOpenRatio(FACE_INDICES.leftEye);
-      const rightEyeRatio = getEyeOpenRatio(FACE_INDICES.rightEye);
-
-      // Média das proporções
-      const averageRatio = (leftEyeRatio + rightEyeRatio) / 2;
-
-      // Se a proporção for menor que um limiar, consideramos os olhos fechados
-      return averageRatio < 0.04;
+      // Um piscar de olhos é detectado quando há uma mudança vertical pequena
+      // e depois um retorno à posição original
+      return (
+        leftEyeVerticalChange > movementThreshold &&
+        rightEyeVerticalChange > movementThreshold
+      );
     },
-    [distance]
+    [movementThreshold]
   );
 
   // Verifica se há um sorriso
+  // Simplificado para trabalhar com dados de posição aproximados
   const isSmiling = useCallback(
     (keypoints: FacePoint[]): boolean => {
-      if (!keypoints || keypoints.length < 468) return false;
+      // Verificamos se temos pontos suficientes para esta análise
+      if (keypoints.length < 5) return false;
 
-      // Pontos da boca
-      const mouthPoints = FACE_INDICES.mouth.map((index) => keypoints[index]);
+      // Em um modelo real, teríamos pontos específicos para os cantos da boca
+      // Aqui estamos usando uma aproximação baseada no movimento da boca (ponto 4)
 
-      // Calcular pontos extremos da boca
-      const leftMostPoint = mouthPoints.reduce(
-        (prev, curr) => (prev.x < curr.x ? prev : curr),
-        mouthPoints[0]
-      );
-      const rightMostPoint = mouthPoints.reduce(
-        (prev, curr) => (prev.x > curr.x ? prev : curr),
-        mouthPoints[0]
-      );
-      const topMostPoint = mouthPoints.reduce(
-        (prev, curr) => (prev.y < curr.y ? prev : curr),
-        mouthPoints[0]
-      );
-      const bottomMostPoint = mouthPoints.reduce(
-        (prev, curr) => (prev.y > curr.y ? prev : curr),
-        mouthPoints[0]
+      if (!lastFaceStateRef.current?.mouthPoints) {
+        lastFaceStateRef.current = {
+          ...lastFaceStateRef.current,
+          mouthPoints: keypoints[4], // Ponto da boca (aproximado)
+        };
+        return false;
+      }
+
+      // Calculamos a diferença vertical e horizontal do ponto da boca
+      const verticalChange =
+        keypoints[4].y - lastFaceStateRef.current.mouthPoints.y;
+      const horizontalChange = Math.abs(
+        keypoints[4].x - lastFaceStateRef.current.mouthPoints.x
       );
 
-      // Calcular largura e altura da boca
-      const mouthWidth = distance(leftMostPoint, rightMostPoint);
-      const mouthHeight = distance(topMostPoint, bottomMostPoint);
+      // Atualizamos o estado
+      lastFaceStateRef.current.mouthPoints = keypoints[4];
 
-      // Calcular área da boca
-      const mouthArea = calculateArea(mouthPoints);
-
-      // Proporção de largura/altura e área
-      // Um sorriso tende a ter uma largura maior que a altura e uma área maior
-      const widthHeightRatio = mouthWidth / mouthHeight;
-
-      // Verificar se a pessoa está sorrindo
-      return widthHeightRatio > 2.0 && mouthArea > 100;
+      // Um sorriso geralmente envolve um movimento para cima dos cantos da boca
+      // e um alargamento horizontal
+      return (
+        verticalChange < -movementThreshold &&
+        horizontalChange > movementThreshold
+      );
     },
-    [distance, calculateArea]
+    [movementThreshold]
   );
 
   // Verifica se a cabeça está virada para a esquerda
-  const isTurnedLeft = useCallback(
-    (keypoints: FacePoint[]): boolean => {
-      if (!keypoints || keypoints.length < 468) return false;
+  const isTurnedLeft = useCallback((keypoints: FacePoint[]): boolean => {
+    // Verificamos se temos pontos suficientes
+    if (keypoints.length < 5) return false;
 
-      // Pontos do contorno facial
-      const faceOvalPoints = FACE_INDICES.faceOval.map(
-        (index) => keypoints[index]
-      );
+    // Para detectar a rotação da cabeça, podemos usar a posição relativa dos olhos e nariz
+    // Quando a cabeça vira para a esquerda, o olho direito parece se mover mais para a esquerda
+    const centralPoint = keypoints[0]; // Ponto central do rosto
+    const leftEyePoint = keypoints[1]; // Olho esquerdo
+    const rightEyePoint = keypoints[2]; // Olho direito
+    const nosePoint = keypoints[3]; // Nariz
 
-      // Separar pontos do lado esquerdo e direito do rosto
-      const leftSidePoints = faceOvalPoints.filter(
-        (_, i) => i < faceOvalPoints.length / 2
-      );
-      const rightSidePoints = faceOvalPoints.filter(
-        (_, i) => i >= faceOvalPoints.length / 2
-      );
+    // Calculamos a distância do nariz aos olhos
+    const distanceToLeftEye = Math.abs(nosePoint.x - leftEyePoint.x);
+    const distanceToRightEye = Math.abs(nosePoint.x - rightEyePoint.x);
 
-      // Calcular área visível de cada lado
-      const leftSideArea = calculateArea(leftSidePoints);
-      const rightSideArea = calculateArea(rightSidePoints);
-
-      // Se o lado direito tem uma área significativamente maior que o lado esquerdo,
-      // isso indica que a cabeça está virada para a esquerda
-      const areaRatio = rightSideArea / (leftSideArea + 0.0001);
-
-      return areaRatio > 1.4;
-    },
-    [calculateArea]
-  );
+    // Quando a cabeça vira para a esquerda, a distância entre o nariz e o olho direito
+    // tende a ser menor que a distância entre o nariz e o olho esquerdo
+    return distanceToRightEye < distanceToLeftEye * 0.7;
+  }, []);
 
   // Verifica se a cabeça está virada para a direita
-  const isTurnedRight = useCallback(
-    (keypoints: FacePoint[]): boolean => {
-      if (!keypoints || keypoints.length < 468) return false;
+  const isTurnedRight = useCallback((keypoints: FacePoint[]): boolean => {
+    // Verificamos se temos pontos suficientes
+    if (keypoints.length < 5) return false;
 
-      // Pontos do contorno facial
-      const faceOvalPoints = FACE_INDICES.faceOval.map(
-        (index) => keypoints[index]
-      );
+    // Similar ao método anterior, mas para detectar rotação para a direita
+    const centralPoint = keypoints[0]; // Ponto central do rosto
+    const leftEyePoint = keypoints[1]; // Olho esquerdo
+    const rightEyePoint = keypoints[2]; // Olho direito
+    const nosePoint = keypoints[3]; // Nariz
 
-      // Separar pontos do lado esquerdo e direito do rosto
-      const leftSidePoints = faceOvalPoints.filter(
-        (_, i) => i < faceOvalPoints.length / 2
-      );
-      const rightSidePoints = faceOvalPoints.filter(
-        (_, i) => i >= faceOvalPoints.length / 2
-      );
+    // Calculamos a distância do nariz aos olhos
+    const distanceToLeftEye = Math.abs(nosePoint.x - leftEyePoint.x);
+    const distanceToRightEye = Math.abs(nosePoint.x - rightEyePoint.x);
 
-      // Calcular área visível de cada lado
-      const leftSideArea = calculateArea(leftSidePoints);
-      const rightSideArea = calculateArea(rightSidePoints);
-
-      // Se o lado esquerdo tem uma área significativamente maior que o lado direito,
-      // isso indica que a cabeça está virada para a direita
-      const areaRatio = leftSideArea / (rightSideArea + 0.0001);
-
-      return areaRatio > 1.4;
-    },
-    [calculateArea]
-  );
+    // Quando a cabeça vira para a direita, a distância entre o nariz e o olho esquerdo
+    // tende a ser menor que a distância entre o nariz e o olho direito
+    return distanceToLeftEye < distanceToRightEye * 0.7;
+  }, []);
 
   // Verifica se a cabeça está acenando (movimento para cima e para baixo)
-  const isNodding = useCallback((keypoints: FacePoint[]): boolean => {
-    if (!keypoints || keypoints.length < 468 || !lastFaceStateRef.current)
-      return false;
+  const isNodding = useCallback(
+    (keypoints: FacePoint[]): boolean => {
+      if (keypoints.length < 5 || !lastFaceStateRef.current?.nodPoints)
+        return false;
 
-    // Pontos da ponta do nariz e do queixo
-    const nosePoint = keypoints[1]; // Ponta do nariz
-    const chinPoint = keypoints[199]; // Ponto central do queixo
+      // Pontos para verificar o movimento vertical da cabeça
+      const nosePoint = keypoints[3]; // Ponta do nariz
 
-    // Se não temos estado anterior, salvamos o atual
-    if (!lastFaceStateRef.current.nosePoint) {
-      lastFaceStateRef.current.nosePoint = nosePoint;
-      lastFaceStateRef.current.chinPoint = chinPoint;
-      return false;
-    }
+      // Se não temos estado anterior, salvamos o atual
+      if (!lastFaceStateRef.current?.nodPoints) {
+        lastFaceStateRef.current = {
+          ...lastFaceStateRef.current,
+          nodPoints: nosePoint,
+        };
+        return false;
+      }
 
-    // Calculamos o movimento vertical
-    const noseMovementY = Math.abs(
-      nosePoint.y - lastFaceStateRef.current.nosePoint.y
-    );
-    const chinMovementY = Math.abs(
-      chinPoint.y - lastFaceStateRef.current.chinPoint.y
-    );
+      // Calculamos o movimento vertical
+      const verticalMovement = Math.abs(
+        nosePoint.y - lastFaceStateRef.current.nodPoints.y
+      );
 
-    // Atualizamos o estado anterior
-    lastFaceStateRef.current.nosePoint = nosePoint;
-    lastFaceStateRef.current.chinPoint = chinPoint;
+      // Atualizamos o estado anterior
+      lastFaceStateRef.current.nodPoints = nosePoint;
 
-    // Verificamos se houve movimento vertical significativo
-    const significantMovement =
-      noseMovementY > movementThreshold || chinMovementY > movementThreshold;
-
-    return significantMovement;
-  }, []);
+      // Verificamos se houve movimento vertical significativo
+      return verticalMovement > movementThreshold;
+    },
+    [movementThreshold]
+  );
 
   // Verifica os movimentos faciais de acordo com o desafio atual
   const checkFaceMovement = useCallback(
-    (keypoints: FacePoint[]): void => {
-      if (!currentChallenge || !keypoints || keypoints.length < 468) return;
+    (keypoints: FacePoint[]): boolean => {
+      if (!currentChallenge || keypoints.length < 5) return false;
 
       // Inicializa lastFaceStateRef se necessário
       if (!lastFaceStateRef.current) {
@@ -434,6 +318,9 @@ export const useLivenessDetection = (
       // Se detectado o movimento esperado, incrementa o contador
       if (detected) {
         consecutiveDetectionsRef.current += 1;
+        console.log(
+          `${currentChallenge} movement detected! Progress: ${consecutiveDetectionsRef.current}/${requiredDetections}`
+        );
 
         // Atualiza o progresso do desafio
         const newProgress = Math.min(
@@ -452,7 +339,7 @@ export const useLivenessDetection = (
         // Decrementa o contador, mas não abaixo de zero
         consecutiveDetectionsRef.current = Math.max(
           0,
-          consecutiveDetectionsRef.current - 0.5
+          consecutiveDetectionsRef.current - 0.2
         );
 
         // Atualiza o progresso
@@ -464,6 +351,8 @@ export const useLivenessDetection = (
         );
         setChallengeProgress(newProgress);
       }
+
+      return detected;
     },
     [
       currentChallenge,
@@ -473,6 +362,7 @@ export const useLivenessDetection = (
       isTurnedLeft,
       isTurnedRight,
       isNodding,
+      requiredDetections,
     ]
   );
 

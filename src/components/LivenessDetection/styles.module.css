@@ -1,219 +1,397 @@
 .livenessDetection {
   font-family: "Segoe UI", "Roboto", "Helvetica Neue", sans-serif;
-  max-width: 800px;
+  max-width: 100%;
   margin: 0 auto;
-  padding: 20px;
+  padding: 16px;
   color: #333;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .header {
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
+  width: 100%;
 }
 
 .header h2 {
-  font-size: 1.8rem;
-  margin-bottom: 10px;
+  font-size: 1.5rem;
+  margin-bottom: 8px;
   color: #2c3e50;
 }
 
 .header p {
-  font-size: 1rem;
+  font-size: 0.95rem;
   color: #7f8c8d;
   max-width: 600px;
   margin: 0 auto;
 }
 
+/* Estilos para o indicador de progresso */
+.challengesProgress {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 24px;
+  width: 100%;
+  max-width: 480px;
+  position: relative;
+}
+
+.challengeStep {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  flex: 1;
+  z-index: 1;
+}
+
+.stepIndicator {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: #e0e0e0;
+  color: #777;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  border: 2px solid #e0e0e0;
+  font-size: 0.9rem;
+}
+
+.challengeStep.active .stepIndicator {
+  background-color: #3498db;
+  color: white;
+  border-color: #3498db;
+  transform: scale(1.1);
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+}
+
+.challengeStep.completed .stepIndicator {
+  background-color: #2ecc71;
+  border-color: #2ecc71;
+  color: white;
+}
+
+.stepLabel {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: #777;
+  transition: all 0.3s ease;
+}
+
+.challengeStep.active .stepLabel {
+  color: #3498db;
+  font-weight: bold;
+}
+
+.challengeStep.completed .stepLabel {
+  color: #2ecc71;
+  font-weight: bold;
+}
+
+.challengeStep::before {
+  content: "";
+  position: absolute;
+  top: 16px;
+  left: -50%;
+  width: 100%;
+  height: 2px;
+  background-color: #e0e0e0;
+  z-index: -1;
+}
+
+.challengeStep:first-child::before {
+  display: none;
+}
+
+.challengeStep.completed::before {
+  background-color: #2ecc71;
+}
+
+.checkmark {
+  display: inline-block;
+  width: 8px;
+  height: 14px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  margin-top: -4px;
+}
+
+/* Estilos para o container da câmera */
 .cameraContainer {
   position: relative;
-  width: 640px;
-  height: 480px;
-  margin: 0 auto 30px;
-  border-radius: 10px;
+  width: 100%;
+  max-width: 480px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  margin-bottom: 24px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
 }
 
-.canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 2;
-  pointer-events: none;
-}
-
-.overlay {
+.faceCanvas {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 3;
+  z-index: 5;
   pointer-events: none;
+}
+
+/* Overlay de instruções */
+.instructionsOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.8);
   display: flex;
   justify-content: center;
   align-items: center;
-  flex-direction: column;
+  z-index: 10;
+  animation: fadeIn 0.5s ease;
 }
 
-.statusMessage {
-  background-color: rgba(0, 0, 0, 0.7);
+.instructionsContent {
   color: white;
   text-align: center;
+  max-width: 85%;
   padding: 20px;
-  border-radius: 8px;
-  max-width: 80%;
 }
 
-.statusMessage p {
-  margin: 10px 0 5px;
-  font-size: 1.1rem;
+.instructionIcon {
+  width: 56px;
+  height: 56px;
+  background-color: #3498db;
+  border-radius: 50%;
+  margin: 0 auto 15px;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-.statusMessage small {
-  display: block;
-  font-size: 0.85rem;
-  opacity: 0.8;
+.instructionIcon:before {
+  content: "!";
+  font-size: 32px;
+  color: white;
+  font-weight: bold;
+}
+
+.instructionsContent h3 {
+  margin-bottom: 12px;
+  font-size: 1.3rem;
+  color: white;
+}
+
+.instructionsContent p {
+  margin-bottom: 16px;
+  color: #ddd;
+  font-size: 0.95rem;
+}
+
+.instructionsContent ul {
+  list-style-type: none;
+  padding: 0;
+  text-align: left;
+}
+
+.instructionsContent li {
+  margin-bottom: 8px;
+  padding-left: 22px;
+  position: relative;
+  color: #ddd;
+  font-size: 0.9rem;
+}
+
+.instructionsContent li:before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: #3498db;
+}
+
+/* Overlay de processamento */
+.processingOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 6;
+  color: white;
 }
 
 .spinner {
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   border: 3px solid rgba(255, 255, 255, 0.3);
   border-radius: 50%;
   border-top-color: white;
   animation: spin 1s linear infinite;
-  margin: 0 auto 10px;
+  margin-bottom: 15px;
 }
 
-.errorIcon {
+.processingOverlay p {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+/* Guia de face */
+.faceGuide {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 200px;
+  height: 240px;
+  z-index: 7;
+  pointer-events: none;
+}
+
+.faceOutline {
+  width: 100%;
+  height: 100%;
+  border-radius: 50% 50% 45% 45% / 40% 40% 60% 60%;
+  border: 2px dashed rgba(52, 152, 219, 0.7);
+  box-shadow: 0 0 0 1px rgba(52, 152, 219, 0.1);
+  animation: pulse 2s infinite;
+}
+
+/* Indicador de desafio */
+.challengeIndicator {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.7);
+  padding: 14px;
+  border-radius: 12px;
+  color: white;
+  text-align: center;
+  z-index: 8;
+  width: 80%;
+  max-width: 320px;
+  animation: fadeIn 0.5s ease;
+}
+
+.challengeIcon {
   width: 40px;
   height: 40px;
+  background-color: #3498db;
   border-radius: 50%;
-  background-color: #e74c3c;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   margin: 0 auto 10px;
   position: relative;
 }
 
-.errorIcon:before,
-.errorIcon:after {
+.challengeIcon[data-challenge="blink"]:before {
   content: "";
   position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   width: 20px;
-  height: 2px;
-  background-color: white;
-  transform: rotate(45deg);
+  height: 10px;
+  border-top: 2px solid white;
+  border-bottom: 2px solid white;
 }
 
-.errorIcon:after {
-  transform: rotate(-45deg);
+.challengeIcon[data-challenge="smile"]:before {
+  content: "";
+  position: absolute;
+  top: 55%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 10px;
+  border-bottom: 2px solid white;
+  border-radius: 0 0 10px 10px;
 }
 
-.challengePrompt {
-  background-color: rgba(0, 0, 0, 0.7);
-  color: white;
-  padding: 20px;
-  border-radius: 8px;
-  text-align: center;
-  width: 80%;
-  max-width: 400px;
-  transform: translateY(0);
-  opacity: 0;
-  transition: transform 0.3s ease, opacity 0.3s ease;
+.challengeIcon[data-challenge="turnLeft"]:before,
+.challengeIcon[data-challenge="turnRight"]:before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 0;
+  height: 0;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
 }
 
-.challengePrompt.active {
-  transform: translateY(0);
-  opacity: 1;
+.challengeIcon[data-challenge="turnLeft"]:before {
+  border-right: 14px solid white;
+  margin-left: -2px;
 }
 
-.challengeIcon {
-  margin-bottom: 15px;
-  color: white;
+.challengeIcon[data-challenge="turnRight"]:before {
+  border-left: 14px solid white;
+  margin-left: 2px;
 }
 
-.challengePrompt h3 {
-  margin: 0 0 15px;
-  font-size: 1.3rem;
+.challengeIndicator p {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  font-weight: 500;
 }
 
 .progressBar {
-  height: 8px;
+  height: 6px;
   background-color: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+  border-radius: 3px;
   overflow: hidden;
 }
 
 .progressFill {
   height: 100%;
   background-color: #2ecc71;
-  transition: width 0.3s ease-out;
+  transition: width 0.3s ease;
 }
 
-.challengeComplete {
-  background-color: rgba(0, 0, 0, 0.7);
-  color: white;
-  padding: 20px;
-  border-radius: 8px;
-  text-align: center;
-  animation: pulse 1.5s ease-in-out;
+.challengeHelpTip {
+  margin-top: 10px;
+  background-color: rgba(243, 156, 18, 0.2);
+  border-radius: 4px;
+  padding: 8px;
 }
 
-.challengeComplete p {
-  margin: 10px 0 5px;
-  font-size: 1.2rem;
+.challengeHelpTip small {
+  color: #f8f9fa;
+  font-size: 0.85rem;
 }
 
-.challengeComplete small {
-  font-size: 0.9rem;
-  opacity: 0.8;
-}
-
-.checkmark {
-  width: 40px;
-  height: 40px;
-  background-color: #2ecc71;
-  border-radius: 50%;
-  margin: 0 auto 10px;
-  position: relative;
-}
-
-.checkmark:after {
-  content: "";
+/* Resultado de desafio */
+.challengeResult {
   position: absolute;
-  width: 20px;
-  height: 10px;
-  border-left: 2px solid white;
-  border-bottom: 2px solid white;
-  transform: rotate(-45deg);
-  top: 12px;
-  left: 9px;
-}
-
-.allComplete {
-  background-color: rgba(0, 0, 0, 0.7);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(0, 0, 0, 0.8);
+  padding: 20px;
+  border-radius: 12px;
   color: white;
-  padding: 25px;
-  border-radius: 8px;
   text-align: center;
-  animation: fadeIn 0.5s ease-in-out;
+  z-index: 9;
+  animation: fadeInScale 0.5s ease;
+  min-width: 240px;
 }
 
-.allComplete h3 {
-  margin: 10px 0;
-  font-size: 1.5rem;
-  color: #2ecc71;
-}
-
-.allComplete p {
-  margin: 5px 0;
-  font-size: 1.1rem;
-}
-
-.successIcon {
+.success .successIcon {
   width: 60px;
   height: 60px;
   background-color: #2ecc71;
@@ -222,7 +400,7 @@
   position: relative;
 }
 
-.successIcon:after {
+.success .successIcon:after {
   content: "";
   position: absolute;
   width: 30px;
@@ -230,143 +408,244 @@
   border-left: 3px solid white;
   border-bottom: 3px solid white;
   transform: rotate(-45deg);
-  top: 18px;
-  left: 14px;
+  top: 20px;
+  left: 15px;
 }
 
-.challengeIndicators {
-  display: flex;
-  justify-content: center;
-  gap: 15px;
-  margin-bottom: 30px;
-  flex-wrap: wrap;
-}
-
-.indicator {
-  display: flex;
-  align-items: center;
-  color: #7f8c8d;
-  font-size: 0.9rem;
-  padding: 5px 10px;
-  border-radius: 20px;
-  background-color: #f5f5f5;
-  transition: all 0.3s ease;
-}
-
-.indicator.completed {
-  background-color: #e8f8f0;
-  color: #2ecc71;
-}
-
-.indicator.current {
-  background-color: #e8f5fe;
-  color: #3498db;
-  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.3);
-}
-
-.indicatorIcon {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background-color: #e0e0e0;
-  margin-right: 8px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-weight: bold;
-  color: white;
-}
-
-.indicator.completed .indicatorIcon {
-  background-color: #2ecc71;
-}
-
-.indicator.current .indicatorIcon {
-  background-color: #3498db;
-}
-
-.indicatorLabel {
-  white-space: nowrap;
-}
-
-.instructions {
-  background-color: #f9f9f9;
-  padding: 20px;
-  border-radius: 8px;
-  border-left: 4px solid #3498db;
-  margin-top: 20px;
-}
-
-.instructions h4 {
-  margin-top: 0;
-  margin-bottom: 10px;
-  color: #3498db;
-}
-
-.instructions ul {
+.challengeResult p {
   margin: 0;
-  padding-left: 20px;
+  font-size: 1.1rem;
 }
 
-.instructions li {
-  margin-bottom: 8px;
-  color: #555;
+/* Overlay de conclusão */
+.completionOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 11;
+  animation: fadeIn 0.5s ease;
 }
 
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
+.completionContent {
+  text-align: center;
+  color: white;
+  padding: 24px;
+  max-width: 90%;
+}
+
+.completionContent h3 {
+  color: white;
+  margin: 15px 0;
+  font-size: 1.5rem;
+}
+
+.completionContent p {
+  font-size: 1rem;
+  color: #ddd;
+  margin: 0;
+}
+
+/* Seção de ajuda */
+.helpSection {
+  background-color: #f8f9fa;
+  padding: 16px;
+  border-radius: 12px;
+  margin: 0 auto;
+  max-width: 480px;
+  width: 100%;
+}
+
+.helpSection h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  color: #2c3e50;
+  font-size: 1.1rem;
+}
+
+.helpItems {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 480px) {
+  .helpItems {
+    grid-template-columns: repeat(3, 1fr);
   }
-  100% {
+}
+
+.helpItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.helpIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: #f0f0f0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.iconBlink:before {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 8px;
+  background-color: #3498db;
+  border-radius: 50%;
+}
+
+.iconSmile:before {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 8px;
+  border-bottom: 3px solid #3498db;
+  border-radius: 0 0 10px 10px;
+}
+
+.iconTurn:before {
+  content: "";
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-left: 10px solid #3498db;
+}
+
+.helpItem h4 {
+  margin-top: 0;
+  margin-bottom: 4px;
+  color: #2c3e50;
+  font-size: 0.95rem;
+}
+
+.helpItem p {
+  margin: 0;
+  color: #666;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+/* Animações */
+@keyframes spin {
+  to {
     transform: rotate(360deg);
   }
 }
 
-@keyframes pulse {
-  0% {
-    transform: scale(0.95);
-    opacity: 0.7;
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.9);
   }
-  50% {
-    transform: scale(1.05);
+  to {
     opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
   }
 }
 
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: scale(0.9);
   }
   to {
     opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+  100% {
+    opacity: 0.7;
     transform: scale(1);
   }
 }
 
-@media (max-width: 700px) {
-  .cameraContainer {
-    width: 100%;
-    height: auto;
-    aspect-ratio: 4/3;
+/* Media queries */
+@media (max-width: 480px) {
+  .livenessDetection {
+    padding: 12px;
   }
 
-  .canvas {
-    width: 100%;
-    height: 100%;
+  .header h2 {
+    font-size: 1.3rem;
   }
 
-  .challengePrompt,
-  .challengeComplete,
-  .allComplete {
+  .header p {
+    font-size: 0.9rem;
+  }
+
+  .challengeIndicator {
     width: 90%;
+    padding: 12px;
   }
 
-  .indicator {
-    margin-bottom: 10px;
+  .stepIndicator {
+    width: 28px;
+    height: 28px;
+    font-size: 0.8rem;
+  }
+
+  .stepLabel {
+    font-size: 0.75rem;
+  }
+
+  .faceGuide {
+    width: 180px;
+    height: 220px;
+  }
+
+  .instructionsContent h3 {
+    font-size: 1.2rem;
+  }
+
+  .helpSection h3 {
+    font-size: 1rem;
+  }
+}
+
+/* Pequenos dispositivos móveis */
+@media (max-width: 360px) {
+  .header h2 {
+    font-size: 1.2rem;
+  }
+
+  .header p {
+    font-size: 0.85rem;
+  }
+
+  .faceGuide {
+    width: 160px;
+    height: 200px;
+  }
+
+  .challengeIndicator {
+    padding: 10px;
+  }
+
+  .challengeIcon {
+    width: 36px;
+    height: 36px;
   }
 }

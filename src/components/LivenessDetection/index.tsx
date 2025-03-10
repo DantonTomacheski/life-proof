@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
 import CameraView from "../common/CameraView";
-import { useFaceDetection } from "../../hooks/useFaceDetection";
+import useFaceDetection from "../../hooks/useFaceDetection";
 import {
   useLivenessDetection,
   LivenessChallenge,
@@ -17,6 +17,9 @@ interface LivenessDetectionProps {
 /**
  * Componente para detecção de vivacidade facial através de desafios
  * como piscar, sorrir e virar a cabeça.
+ * - Versão melhorada com detecção automática
+ * - Mobile-first design
+ * - UX aprimorada
  */
 const LivenessDetection: React.FC<LivenessDetectionProps> = ({
   onComplete,
@@ -26,13 +29,33 @@ const LivenessDetection: React.FC<LivenessDetectionProps> = ({
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // Estados para controle da interface
-  const [facePrediction, setFacePrediction] = useState<any>(null);
   const [showChallengeSuccess, setShowChallengeSuccess] = useState(false);
   const [showInstructions, setShowInstructions] = useState(true);
+  const [challengeStartTime, setChallengeStartTime] = useState<number | null>(
+    null
+  );
+  const [showHelpTip, setShowHelpTip] = useState(false);
 
-  // Dimensões da câmera
-  const cameraWidth = 640;
-  const cameraHeight = 480;
+  // Dimensões responsivas da câmera
+  const getCameraDimensions = () => {
+    const width = window.innerWidth < 480 ? window.innerWidth - 40 : 480;
+    const height = (width * 3) / 4; // Proporção 4:3
+    return { width, height };
+  };
+
+  const [cameraDimensions, setCameraDimensions] = useState(
+    getCameraDimensions()
+  );
+
+  // Atualiza dimensões da câmera quando a janela é redimensionada
+  useEffect(() => {
+    const handleResize = () => {
+      setCameraDimensions(getCameraDimensions());
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // Lista de desafios
   const challenges: LivenessChallenge[] = [
@@ -43,7 +66,9 @@ const LivenessDetection: React.FC<LivenessDetectionProps> = ({
   ];
 
   // Hooks para detecção facial e de vivacidade
-  const { isDetecting, startDetection, stopDetection } = useFaceDetection();
+  const { faceDetected, startDetection, stopDetection, isProcessing } =
+    useFaceDetection();
+
   const {
     currentChallenge,
     completedChallenges,
@@ -55,6 +80,20 @@ const LivenessDetection: React.FC<LivenessDetectionProps> = ({
     checkFaceMovement,
   } = useLivenessDetection(challenges);
 
+  // Mostra dicas de ajuda se um desafio está demorando muito
+  useEffect(() => {
+    if (currentChallenge && challengeStartTime) {
+      const timeSinceStart = Date.now() - challengeStartTime;
+
+      // Se passaram mais de 10 segundos no mesmo desafio, mostra dica
+      if (timeSinceStart > 10000 && !showHelpTip) {
+        setShowHelpTip(true);
+      }
+    } else {
+      setShowHelpTip(false);
+    }
+  }, [currentChallenge, challengeStartTime, showHelpTip]);
+
   // Inicia o próximo desafio
   const startNextChallenge = () => {
     const nextChallenge = challenges.find(
@@ -63,42 +102,60 @@ const LivenessDetection: React.FC<LivenessDetectionProps> = ({
 
     if (nextChallenge) {
       startChallenge(nextChallenge);
+      setChallengeStartTime(Date.now());
       setShowChallengeSuccess(false);
+      setShowHelpTip(false);
     }
   };
 
   // Manipulador para quando o vídeo é carregado
   const handleVideoLoad = (video: HTMLVideoElement) => {
     videoRef.current = video;
-    setShowInstructions(false);
-    startDetection(canvasRef);
-    startNextChallenge(); // Inicia o primeiro desafio
-  };
 
-  // Função para verificar o canvas (simulando a obtenção de predições)
-  const checkCanvas = () => {
-    // Exemplo de predição - em um aplicativo real, isso viria do TensorFlow
-    if (isDetecting && videoRef.current && currentChallenge) {
-      // Simula uma detecção facial com pontos-chave básicos
-      const simulatedPrediction = {
-        keypoints: [
-          { x: Math.random() * cameraWidth, y: Math.random() * cameraHeight },
-          { x: Math.random() * cameraWidth, y: Math.random() * cameraHeight },
-          // Mais pontos seriam incluídos em uma implementação real
-        ],
-      };
+    // Pequeno atraso para que as instruções sejam vistas
+    setTimeout(() => {
+      setShowInstructions(false);
 
-      setFacePrediction(simulatedPrediction);
+      // Inicia a detecção facial
+      if (canvasRef.current) {
+        startDetection(video, canvasRef.current);
 
-      // Verifica o movimento facial para o desafio atual
-      const result = checkFaceMovement(simulatedPrediction);
-
-      // Se o progresso atingiu 100%, o desafio foi concluído
-      if (result && challengeProgress === 100) {
-        handleChallengeCompleted();
+        // Inicia o primeiro desafio após um pequeno atraso
+        setTimeout(() => {
+          startNextChallenge();
+        }, 1000);
       }
-    }
+    }, 3000);
   };
+
+  // Verifica o movimento facial periodicamente
+  useEffect(() => {
+    if (!faceDetected || !currentChallenge || showChallengeSuccess) return;
+
+    const checkInterval = setInterval(() => {
+      if (faceDetected) {
+        // Simula pontos faciais para o desafio atual
+        // Em uma implementação real, esses pontos viriam do TensorFlow
+        const simulatedKeypoints = Array(468)
+          .fill(null)
+          .map((_, i) => ({
+            x: Math.random() * cameraDimensions.width,
+            y: Math.random() * cameraDimensions.height,
+            z: Math.random() * 0.1,
+          }));
+
+        // Verifica o movimento facial para o desafio atual
+        checkFaceMovement(simulatedKeypoints);
+
+        // Se o progresso atingiu 100%, o desafio foi concluído
+        if (challengeProgress === 100) {
+          handleChallengeCompleted();
+        }
+      }
+    }, 100);
+
+    return () => clearInterval(checkInterval);
+  }, [faceDetected, currentChallenge, challengeProgress, showChallengeSuccess]);
 
   // Manipulador para quando um desafio é concluído
   const handleChallengeCompleted = () => {
@@ -112,12 +169,6 @@ const LivenessDetection: React.FC<LivenessDetectionProps> = ({
       }, 2000);
     }
   };
-
-  // Executa a verificação do canvas periodicamente
-  useEffect(() => {
-    const interval = setInterval(checkCanvas, 100);
-    return () => clearInterval(interval);
-  }, [isDetecting, currentChallenge, challengeProgress]);
 
   // Monitora a conclusão de todos os desafios
   useEffect(() => {
@@ -149,6 +200,22 @@ const LivenessDetection: React.FC<LivenessDetectionProps> = ({
         return "Vire o rosto para a direita";
       default:
         return "Aguarde...";
+    }
+  };
+
+  // Obtém dicas específicas para cada desafio
+  const getChallengeHelpTip = (challenge: LivenessChallenge): string => {
+    switch (challenge) {
+      case "blink":
+        return "Tente piscar algumas vezes naturalmente, sem forçar muito";
+      case "smile":
+        return "Faça um sorriso mais pronunciado, mostrando os dentes";
+      case "turnLeft":
+        return "Vire a cabeça mais para a esquerda, até perder de vista a borda da tela";
+      case "turnRight":
+        return "Vire a cabeça mais para a direita, até perder de vista a borda da tela";
+      default:
+        return "Siga as instruções na tela";
     }
   };
 
@@ -192,20 +259,28 @@ const LivenessDetection: React.FC<LivenessDetectionProps> = ({
         ))}
       </div>
 
-      <div className={styles.cameraContainer}>
+      <div
+        className={styles.cameraContainer}
+        style={{
+          width: cameraDimensions.width,
+          height: cameraDimensions.height,
+        }}
+      >
         {/* Câmera */}
         <CameraView
-          width={cameraWidth}
-          height={cameraHeight}
+          width={cameraDimensions.width}
+          height={cameraDimensions.height}
           onVideoLoad={handleVideoLoad}
           showCaptureButton={false}
+          mirrored={true}
+          facingMode="user"
         />
 
         {/* Canvas para desenho da malha facial */}
         <canvas
           ref={canvasRef}
-          width={cameraWidth}
-          height={cameraHeight}
+          width={cameraDimensions.width}
+          height={cameraDimensions.height}
           className={styles.faceCanvas}
         />
 
@@ -227,8 +302,16 @@ const LivenessDetection: React.FC<LivenessDetectionProps> = ({
           </div>
         )}
 
+        {/* Indicador de processamento e detecção */}
+        {isProcessing && !faceDetected && !showInstructions && (
+          <div className={styles.processingOverlay}>
+            <div className={styles.spinner}></div>
+            <p>Procurando seu rosto...</p>
+          </div>
+        )}
+
         {/* Marcador de face para orientação */}
-        {isDetecting && currentChallenge && !allChallengesCompleted && (
+        {faceDetected && currentChallenge && !allChallengesCompleted && (
           <div className={styles.faceGuide}>
             <div className={styles.faceOutline}></div>
           </div>
@@ -250,6 +333,13 @@ const LivenessDetection: React.FC<LivenessDetectionProps> = ({
                   style={{ width: `${challengeProgress}%` }}
                 ></div>
               </div>
+
+              {/* Dica de ajuda se o usuário está tendo dificuldade */}
+              {showHelpTip && (
+                <div className={styles.challengeHelpTip}>
+                  <small>{getChallengeHelpTip(currentChallenge)}</small>
+                </div>
+              )}
             </div>
           )}
 

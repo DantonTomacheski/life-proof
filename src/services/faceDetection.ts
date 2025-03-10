@@ -1,51 +1,102 @@
 import * as faceLandmarksDetection from "@tensorflow-models/face-landmarks-detection";
-import "@tensorflow/tfjs-core";
+import * as tf from "@tensorflow/tfjs-core";
 import "@tensorflow/tfjs-backend-webgl";
 import { drawMesh } from "../utils/drawMesh";
 
-// Configurações do detector
+// Configurações otimizadas para maior performance
 const DETECTOR_CONFIG = {
   runtime: "tfjs" as const,
-  refineLandmarks: true,
+  refineLandmarks: false, // Desativado para melhor performance
   maxFaces: 1,
+  // Adicionados parâmetros para otimizar a detecção
+  scoreThreshold: 0.5,
+  iouThreshold: 0.3,
 };
 
 // Cache para o detector para evitar recarregá-lo
 let detectorCache: faceLandmarksDetection.FaceLandmarksDetector | null = null;
+let modelLoading = false;
 
 /**
- * Inicializa o detector facial
+ * Inicializa o detector facial com retry e timeout
  */
 async function initializeDetector(): Promise<faceLandmarksDetection.FaceLandmarksDetector> {
   if (detectorCache) {
     return detectorCache;
   }
 
+  if (modelLoading) {
+    // Se já estiver carregando, aguarda um pouco e tenta novamente
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    return initializeDetector();
+  }
+
   try {
-    // Carregar o modelo MediaPipe FaceMesh
-    const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
+    modelLoading = true;
+    console.log("Inicializando detector facial...");
 
-    const detector = await faceLandmarksDetection.createDetector(
-      model,
-      DETECTOR_CONFIG
-    );
+    // Define um timeout para o carregamento do modelo
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("Timeout ao carregar modelo")), 15000);
+    });
 
+    // Promessa de carregamento do modelo
+    const modelPromise = (async () => {
+      // Força o backend WebGL para melhor performance
+      await Promise.all([
+        import("@tensorflow/tfjs-backend-webgl"),
+        tf.setBackend("webgl"),
+      ]);
+
+      // Carregar o modelo MediaPipe FaceMesh
+      const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
+      return faceLandmarksDetection.createDetector(model, DETECTOR_CONFIG);
+    })();
+
+    // Usa race para aplicar o timeout
+    const detector = await Promise.race([modelPromise, timeoutPromise]);
+
+    console.log("Detector facial inicializado com sucesso");
     detectorCache = detector;
+    modelLoading = false;
     return detector;
   } catch (error) {
     console.error("Erro ao inicializar o detector facial:", error);
-    throw new Error("Não foi possível inicializar o detector facial");
+    modelLoading = false;
+
+    // Se falhar, tenta uma configuração mais simples
+    try {
+      console.log("Tentando configuração alternativa...");
+      const simpleConfig = {
+        runtime: "tfjs" as const,
+        refineLandmarks: false,
+        maxFaces: 1,
+      };
+
+      const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
+      const detector = await faceLandmarksDetection.createDetector(
+        model,
+        simpleConfig
+      );
+
+      detectorCache = detector;
+      return detector;
+    } catch (fallbackError) {
+      console.error("Falha na configuração alternativa:", fallbackError);
+      throw new Error("Não foi possível inicializar o detector facial");
+    }
   }
 }
 
 /**
  * Executa o detector facial no vídeo e desenha a malha facial no canvas
+ * Retorna uma função para cancelar a detecção
  */
 export async function runDetector(
   video: HTMLVideoElement,
   canvas: HTMLCanvasElement,
   drawFaceMesh: boolean = true,
-  onPrediction?: (prediction: any) => void
+  onPrediction?: (prediction: faceLandmarksDetection.Face | null) => void
 ): Promise<() => void> {
   if (!video || !canvas) {
     throw new Error("Vídeo ou canvas não fornecidos");
@@ -60,56 +111,86 @@ export async function runDetector(
   // Limpar o canvas
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Inicializar o detector
-  const detector = await initializeDetector();
+  // Inicializar o detector com retry
+  let detector: faceLandmarksDetection.FaceLandmarksDetector;
+  let retryCount = 0;
+  const maxRetries = 3;
+
+  while (retryCount < maxRetries) {
+    try {
+      detector = await initializeDetector();
+      break;
+    } catch (error) {
+      retryCount++;
+      console.error(`Tentativa ${retryCount}/${maxRetries} falhou:`, error);
+
+      if (retryCount >= maxRetries) {
+        throw new Error(
+          "Falha após múltiplas tentativas de inicializar o detector facial"
+        );
+      }
+
+      // Espera antes de tentar novamente
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
 
   let isRunning = true;
-  let lastPrediction: any = null;
+  let frameSkip = 0; // Para limitar a taxa de processamento
+  const frameSkipThreshold = 2; // Processa a cada 3 frames para melhor performance
 
-  // Função para detectar rostos continuamente
+  // Função para detectar rostos
   const detect = async () => {
     if (!isRunning) return;
 
     try {
       // Verificar se o vídeo está pronto
       if (video.readyState === 4) {
-        // Estimar faces no vídeo
-        const predictions = await detector.estimateFaces(video);
+        frameSkip = (frameSkip + 1) % (frameSkipThreshold + 1);
 
-        // Limpar o canvas
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // Processa apenas alguns frames para melhorar performance
+        if (frameSkip === 0) {
+          // Estimar faces no vídeo
+          const predictions = await detector.estimateFaces(video);
 
-        // Processar as predições
-        if (predictions.length > 0) {
-          const prediction = predictions[0];
-          lastPrediction = prediction;
-
-          // Desenhar a malha facial se solicitado
+          // Limpar o canvas se for desenhar
           if (drawFaceMesh) {
-            drawMesh(prediction, ctx);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
           }
 
-          // Callback com a predição, se fornecido
-          if (onPrediction) {
-            onPrediction(prediction);
+          // Processar as predições
+          if (predictions.length > 0) {
+            const prediction = predictions[0];
+
+            // Desenhar a malha facial se solicitado
+            if (drawFaceMesh) {
+              drawMesh(prediction, ctx);
+            }
+
+            // Callback com a predição, se fornecido
+            if (onPrediction) {
+              onPrediction(prediction);
+            }
+          } else if (onPrediction) {
+            // Se não encontrar face, passar null para o callback
+            onPrediction(null);
           }
-        } else if (onPrediction && lastPrediction) {
-          // Se não encontrar face, passar null para o callback
-          onPrediction(null);
         }
       }
 
       // Continuar o loop de detecção
-      requestAnimationFrame(detect);
+      if (isRunning) {
+        requestAnimationFrame(detect);
+      }
     } catch (error) {
       console.error("Erro na detecção facial:", error);
 
       // Tentar novamente após 500ms em caso de erro
-      setTimeout(() => {
-        if (isRunning) {
+      if (isRunning) {
+        setTimeout(() => {
           detect();
-        }
-      }, 500);
+        }, 500);
+      }
     }
   };
 
@@ -120,23 +201,6 @@ export async function runDetector(
   return () => {
     isRunning = false;
   };
-}
-
-/**
- * Captura uma única face da imagem e retorna a predição
- */
-export async function captureFrame(
-  image: HTMLImageElement | HTMLVideoElement | ImageData
-): Promise<any> {
-  try {
-    const detector = await initializeDetector();
-    const predictions = await detector.estimateFaces(image);
-
-    return predictions.length > 0 ? predictions[0] : null;
-  } catch (error) {
-    console.error("Erro ao capturar face do frame:", error);
-    return null;
-  }
 }
 
 /**
@@ -156,56 +220,8 @@ export async function hasFace(
   }
 }
 
-/**
- * Compara duas faces e retorna uma pontuação de similaridade
- * Nota: Esta é uma implementação simplificada e pode precisar de melhorias
- * para uso em produção.
- */
-export async function compareFaces(faceA: any, faceB: any): Promise<number> {
-  if (!faceA || !faceB) return 0;
-
-  try {
-    // Extrair pontos faciais
-    const pointsA = faceA.keypoints;
-    const pointsB = faceB.keypoints;
-
-    // Verificar se os pontos existem
-    if (!pointsA || !pointsB) return 0;
-
-    // Calcular distância média entre pontos correspondentes
-    let totalDistance = 0;
-    let validPoints = 0;
-
-    // Usar pontos limitados para comparação (pontos principais)
-    const keyIndices = [1, 33, 263, 61, 291, 199, 6, 4, 101, 10, 152, 234];
-
-    for (const index of keyIndices) {
-      if (pointsA[index] && pointsB[index]) {
-        const dx = pointsA[index].x - pointsB[index].x;
-        const dy = pointsA[index].y - pointsB[index].y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-
-        totalDistance += distance;
-        validPoints++;
-      }
-    }
-
-    if (validPoints === 0) return 0;
-
-    // Normalizar a pontuação para 0-1, onde 1 é match perfeito
-    const avgDistance = totalDistance / validPoints;
-    const similarityScore = Math.max(0, 1 - avgDistance / 100);
-
-    return similarityScore;
-  } catch (error) {
-    console.error("Erro ao comparar faces:", error);
-    return 0;
-  }
-}
-
 export default {
   runDetector,
-  captureFrame,
   hasFace,
-  compareFaces,
+  initializeDetector,
 };

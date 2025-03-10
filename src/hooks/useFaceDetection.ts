@@ -23,7 +23,10 @@ interface UseFaceDetectionResult {
 }
 
 /**
- * Hook personalizado para detecção facial
+ * Hook personalizado aprimorado para detecção facial
+ * - Melhoria na estabilidade da detecção
+ * - Redução de falsos positivos/negativos
+ * - Adaptado para melhor performance em dispositivos móveis
  */
 export const useFaceDetection = (): UseFaceDetectionResult => {
   // Estados para controle de detecção facial
@@ -39,13 +42,19 @@ export const useFaceDetection = (): UseFaceDetectionResult => {
 
   // Referências para controle do loop de detecção
   const detectorRef = useRef<number | null>(null);
+  const cancelDetectionRef = useRef<(() => void) | null>(null);
   const consecutiveDetectionsRef = useRef<number>(0);
   const consecutiveNonDetectionsRef = useRef<number>(0);
-  const detectionThreshold = 3; // Número de detecções consecutivas necessárias
+  const detectionThreshold = 2; // Reduzido para melhorar a responsividade
+  const nonDetectionThreshold = 3; // Aumentado para evitar oscilações
 
-  // Função para verificar a presença de pixels não transparentes no canvas
+  // Cache de previsões para suavizar os resultados
+  const predictionsCache = useRef<any[]>([]);
+  const maxCacheSize = 3;
+
+  // Função para verificar pixels não transparentes no canvas
   const hasNonTransparentPixels = useCallback(
-    (canvas: HTMLCanvasElement, minThreshold: number = 1000): boolean => {
+    (canvas: HTMLCanvasElement, minThreshold: number = 800): boolean => {
       const ctx = canvas.getContext("2d");
       if (!ctx) return false;
 
@@ -57,9 +66,10 @@ export const useFaceDetection = (): UseFaceDetectionResult => {
       ).data;
       let nonTransparentPixels = 0;
 
-      for (let i = 3; i < imageData.length; i += 4) {
-        if (imageData[i] > 10) {
-          // Alpha > 10 (não totalmente transparente)
+      // Amostragem para aumentar performance
+      for (let i = 3; i < imageData.length; i += 16) {
+        if (imageData[i] > 5) {
+          // Alpha > 5 (não totalmente transparente)
           nonTransparentPixels++;
           if (nonTransparentPixels > minThreshold) {
             return true;
@@ -72,6 +82,90 @@ export const useFaceDetection = (): UseFaceDetectionResult => {
     []
   );
 
+  // Calcula a média das posições do rosto a partir do cache
+  const calculateAveragePosition = useCallback(() => {
+    if (predictionsCache.current.length === 0) return null;
+
+    const validPositions = predictionsCache.current.filter(
+      (pos) => pos !== null
+    );
+    if (validPositions.length === 0) return null;
+
+    const sum = validPositions.reduce(
+      (acc, pos) => {
+        return {
+          x: acc.x + pos.x,
+          y: acc.y + pos.y,
+          width: acc.width + pos.width,
+          height: acc.height + pos.height,
+        };
+      },
+      { x: 0, y: 0, width: 0, height: 0 }
+    );
+
+    return {
+      x: sum.x / validPositions.length,
+      y: sum.y / validPositions.length,
+      width: sum.width / validPositions.length,
+      height: sum.height / validPositions.length,
+    };
+  }, []);
+
+  // Extrai os limites do rosto a partir dos dados do canvas
+  const extractFaceBounds = useCallback(
+    (canvas: HTMLCanvasElement) => {
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+
+      // Encontrar limites do rosto (área não transparente)
+      let minX = canvas.width;
+      let minY = canvas.height;
+      let maxX = 0;
+      let maxY = 0;
+      let foundPixels = false;
+
+      // Usa amostragem para melhor performance
+      for (let y = 0; y < canvas.height; y += 2) {
+        for (let x = 0; x < canvas.width; x += 2) {
+          const alpha = data[(y * canvas.width + x) * 4 + 3];
+          if (alpha > 5) {
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+            foundPixels = true;
+          }
+        }
+      }
+
+      if (foundPixels) {
+        const position = {
+          x: minX,
+          y: minY,
+          width: maxX - minX,
+          height: maxY - minY,
+        };
+
+        // Adiciona a nova posição ao cache
+        predictionsCache.current.push(position);
+
+        // Limita o tamanho do cache
+        if (predictionsCache.current.length > maxCacheSize) {
+          predictionsCache.current.shift();
+        }
+
+        // Retorna posição suavizada
+        return calculateAveragePosition();
+      }
+
+      return null;
+    },
+    [calculateAveragePosition]
+  );
+
   // Função para iniciar o processo de detecção
   const startDetection = useCallback(
     async (video: HTMLVideoElement, canvas: HTMLCanvasElement) => {
@@ -82,18 +176,21 @@ export const useFaceDetection = (): UseFaceDetectionResult => {
       setIsProcessing(true);
       setFacePosition(null);
 
+      // Limpa as referências
       consecutiveDetectionsRef.current = 0;
       consecutiveNonDetectionsRef.current = 0;
+      predictionsCache.current = [];
 
       try {
-        // Iniciar o detector facial
-        await runDetector(video, canvas);
+        // Iniciar o detector facial - retorna função para cancelar
+        const cancelDetection = await runDetector(video, canvas);
+        cancelDetectionRef.current = cancelDetection;
 
-        // Iniciar loop de verificação para determinar se um rosto foi detectado
-        const checkCanvas = () => {
+        // Iniciar loop para verificar se um rosto foi detectado
+        const checkFace = () => {
           if (!isDetecting) return;
 
-          const hasFace = hasNonTransparentPixels(canvas, 1000);
+          const hasFace = hasNonTransparentPixels(canvas, 800);
 
           if (hasFace) {
             consecutiveDetectionsRef.current += 1;
@@ -104,79 +201,50 @@ export const useFaceDetection = (): UseFaceDetectionResult => {
               consecutiveDetectionsRef.current >= detectionThreshold &&
               !faceDetected
             ) {
-              console.log("Rosto detectado após detecções consecutivas");
+              console.log("Rosto detectado");
               setFaceDetected(true);
               setIsProcessing(false);
 
-              // Extrair informações da posição do rosto no canvas
-              const ctx = canvas.getContext("2d");
-              if (ctx) {
-                const imageData = ctx.getImageData(
-                  0,
-                  0,
-                  canvas.width,
-                  canvas.height
-                );
-                const data = imageData.data;
-
-                // Encontrar limites do rosto (área não transparente)
-                let minX = canvas.width;
-                let minY = canvas.height;
-                let maxX = 0;
-                let maxY = 0;
-                let foundPixels = false;
-
-                for (let y = 0; y < canvas.height; y++) {
-                  for (let x = 0; x < canvas.width; x++) {
-                    const alpha = data[(y * canvas.width + x) * 4 + 3];
-                    if (alpha > 10) {
-                      minX = Math.min(minX, x);
-                      minY = Math.min(minY, y);
-                      maxX = Math.max(maxX, x);
-                      maxY = Math.max(maxY, y);
-                      foundPixels = true;
-                    }
-                  }
-                }
-
-                if (foundPixels) {
-                  setFacePosition({
-                    x: minX,
-                    y: minY,
-                    width: maxX - minX,
-                    height: maxY - minY,
-                  });
-                }
+              // Extrair posição do rosto
+              const position = extractFaceBounds(canvas);
+              if (position) {
+                setFacePosition(position);
+              }
+            } else if (faceDetected) {
+              // Se já tem um rosto detectado, apenas atualiza a posição
+              const position = extractFaceBounds(canvas);
+              if (position) {
+                setFacePosition(position);
               }
             }
           } else {
             consecutiveNonDetectionsRef.current += 1;
-            consecutiveDetectionsRef.current = 0;
 
-            // Após várias não-detecções consecutivas, consideramos que o rosto foi perdido
+            // Se não detectar por várias vezes seguidas, consideramos que o rosto foi perdido
             if (
-              consecutiveNonDetectionsRef.current >= detectionThreshold &&
+              consecutiveNonDetectionsRef.current >= nonDetectionThreshold &&
               faceDetected
             ) {
-              console.log("Rosto perdido após não-detecções consecutivas");
+              console.log("Rosto perdido");
               setFaceDetected(false);
               setFacePosition(null);
+              predictionsCache.current = [];
             }
           }
 
           // Continuar o loop de verificação
-          detectorRef.current = requestAnimationFrame(checkCanvas);
+          detectorRef.current = requestAnimationFrame(checkFace);
         };
 
         // Iniciar o loop de verificação
-        detectorRef.current = requestAnimationFrame(checkCanvas);
+        detectorRef.current = requestAnimationFrame(checkFace);
       } catch (error) {
         console.error("Erro ao iniciar a detecção facial:", error);
         setIsProcessing(false);
         setIsDetecting(false);
       }
     },
-    [isDetecting, faceDetected, hasNonTransparentPixels]
+    [isDetecting, faceDetected, hasNonTransparentPixels, extractFaceBounds]
   );
 
   // Função para interromper a detecção
@@ -185,6 +253,12 @@ export const useFaceDetection = (): UseFaceDetectionResult => {
       cancelAnimationFrame(detectorRef.current);
       detectorRef.current = null;
     }
+
+    if (cancelDetectionRef.current) {
+      cancelDetectionRef.current();
+      cancelDetectionRef.current = null;
+    }
+
     setIsDetecting(false);
     setIsProcessing(false);
   }, []);
@@ -193,6 +267,7 @@ export const useFaceDetection = (): UseFaceDetectionResult => {
   const resetDetection = useCallback(() => {
     setFaceDetected(false);
     setFacePosition(null);
+    predictionsCache.current = [];
     consecutiveDetectionsRef.current = 0;
     consecutiveNonDetectionsRef.current = 0;
   }, []);
@@ -202,6 +277,10 @@ export const useFaceDetection = (): UseFaceDetectionResult => {
     return () => {
       if (detectorRef.current) {
         cancelAnimationFrame(detectorRef.current);
+      }
+
+      if (cancelDetectionRef.current) {
+        cancelDetectionRef.current();
       }
     };
   }, []);
